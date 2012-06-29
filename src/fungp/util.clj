@@ -1,5 +1,4 @@
-(ns fungp.util
-    (:require [clojure.math [numeric-tower :as math]]))
+(ns fungp.util)
 
 (defn flip
   "Convenience function. Generates true with a probablilty of the
@@ -19,4 +18,8 @@
 
 (defn off-by
   "Calculate error."
-  [x y] (math/abs (- x y)))
+  [x y] (Math/abs (- x y)))
+
+(defn on-key
+  "Apply a function to a part of a record."
+  [k r f] (assoc r k (f (k r))))

@@ -79,7 +79,7 @@
             {:op gte :arity 4 :name 'gte}
             ])
 
-(def symbols ['a])
+(def symbols '[a])
 
 (def lits ['Math/PI 'Math/E])
 
@@ -118,9 +118,9 @@
   (def results (run-gp {:gens iter :cycles cycle :term [-1 1]
                         :pop-size 8 :forest-size 150 :depth [2 3]
                         :symbols symbols :funcs funcs
-                        :repfunc repfunc  :reprate 1
-                        :tournament-size 5 :actual actual
-                        :tests testdata}))
+                        :report {:repfunc repfunc  :reprate 1}
+                        :tournament-size 5
+                        :fit {:actual actual :tests testdata}}))
   (def best-result (:best results))
   (def out-func (list 'fn symbols (conv-code (:tree best-result) funcs)))
   (println "Done!")
