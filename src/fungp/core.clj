@@ -124,23 +124,27 @@
 (defn build-tree
   "Build a Tree record from a TreeAttribute record. Optionally takes depth arguments."
   ([attr]
-     (Tree. (build-tree-code attr) attr nil))
+     (Tree. (build-tree-code attr) attr Double/MAX_VALUE))
   ([attr depth-max depth-min]
-     (Tree. (build-tree-code attr depth-max depth-min) attr nil)))
+     (Tree. (build-tree-code attr depth-max depth-min) attr Double/MAX_VALUE)))
 
 ;;; First we define a function for creating a collection of trees, then one for
 ;;; creating a collection of a collection of trees.
 
 (defn build-forest
-  "Returns a sequence of trees. A bunch of trees is a forest, right? Get it?"
+  "Returns a Forest record. A bunch of trees is a forest, right? Get it?"
   [attr forest-size]
-  (Forest. (repeatedly forest-size #(build-tree attr)) nil))
+  (let [trees (repeatedly forest-size #(build-tree attr))
+        best (rand-nth trees)]
+    (Forest. trees best)))
 
 (defn build-population
   "Call build-forest repeatedly to fill a population. A population is a collection
    of forests."
   [attr pop-size forest-size]
-  (Population. (repeatedly pop-size #(build-forest attr forest-size)) nil))
+  (let [population (repeatedly pop-size #(build-forest attr forest-size))
+        best (-> population rand-nth :trees rand-nth)]
+    (Population. population best)))
 
 (defn max-tree-height-code
   "Find the maximum height of a code tree."
@@ -212,7 +216,7 @@
                         (< (max-tree-height-code (:code tree))
                            (-> tree :attributes :max-height)))
                   (assoc tree :code (replace-subtree-code
-                                     (:code tree) (build-tree (:attributes tree))))
+                                     (:code tree) (build-tree-code (:attributes tree))))
                   (assoc tree :code (replace-subtree-code
                                      (:code tree) (terminal (:attributes tree)))))
                 (assoc tree :code (rand-subtree-code (:code tree)))) ;; subtree lifting
@@ -255,17 +259,18 @@
                       (-> tree :attributes :symbols)
                       (:code tree))
         f (eval f-symb)]
-    (reduce + (map off-by
+    (reduce + (map (fn [x y] (- (max x y) (min x y)))
                    (map #(apply f %) (:tests fit))
                    (:actual fit)))))
+
+(defn tree-error
+  [tree fit]
+  (assoc tree :error (find-error tree fit)))
 
 (defn forest-error
   "Runs find-error on every tree in a forest, assoc'ing the :error attribute in the record."
   [forest fit]
-  (assoc forest :trees (map (fn [tree error]
-                              (assoc tree :error error))
-                            (:trees forest)
-                            (map #(find-error % fit) (:trees forest)))))
+  (assoc forest :trees (map #(tree-error % fit) (:trees forest))))
 
 (defn get-best
   "Returns the best tree in a forest, according to their error."
@@ -301,21 +306,30 @@
 ;;;  * be resumable, meaning the search can halt, returning information, and that information
 ;;;    can be passed back in to start the search at the same place
 
+(defn forest-best-update
+  "Update the :best attribute of the Forest record."
+  [forest]
+  (let [current-best (get-best forest)
+        old-best (-> forest :best)]
+    (if (or (nil? old-best)
+            (< (:error current-best) (:error old-best)))
+      (assoc forest :best current-best)
+      forest)))
+
 (defn elite
   "Take the best tree so far and put it in the current forest."
   [forest]
-  (assoc forest :trees (conj (rest (:trees forest)) (:best forest))))
+  (assoc forest :trees (conj (rest (shuffle (:trees forest))) (:best forest))))
 
 (defn process-forest-generation
   "Run selection and mutation phases on a Forest record."
-  [forest best]
-  (let [forest (mutate-forest (tournament-select forest))]
-    (elite (assoc forest :best best))))
+  [forest]
+  (-> forest mutate-forest tournament-select elite))
 
-(defn lower-error
-  "Compare records with :error and return the best one."
-  [have-error] (first (sort-by :error have-error)))
-
+(defn zero-not-nil?
+  [x] (and (not (nil? x))
+           (zero? x)))
+  
 (defn generations
   "Run n generations of a forest. Over the course of one generation, the trees in
    the forest will go through selection, crossover, and mutation. The best individual
@@ -323,16 +337,12 @@
    when no best individual has been found)."
   [forest fit n]
   (if (or (zero? n)
-          (and (not (nil? (-> forest :best :error)))
-               (zero? (-> forest :best :error)))) ;; stop early when fitness is zero
-    (do (println (-> forest :best))(flush) forest) ;; return this forest
-    (let [ferror (forest-error forest fit)
-          best (if (nil? (:best forest))
-                 (get-best ferror)
-                 (lower-error [(get-best ferror) (:best forest)]))
-          forest (process-forest-generation ferror best)]
-      ;; the recursive call for the next generation
-      (do (println n)(flush)(recur forest fit (- n 1))))))
+          (zero? (-> forest :best :error)))
+    forest ;; return current forest
+    (let [forest (forest-best-update (process-forest-generation
+                                      (forest-error forest fit)))]
+      ;; the tail-recursive call for the next generation
+      (recur forest fit (- n 1)))))
 
 ;;; ### Populations
 ;;;
@@ -341,17 +351,29 @@
 ;;; a "population" of forests. We can evolve the forests in the population individually
 ;;; and cross over between them.
 
-(defn forests-crossover
-  "Individual trees migrate between forests."
-  [forests]
-  (let [cross (map rand-nth forests)]
-    (map (fn [forest selected]
-           (conj (rest (shuffle forest)) selected))
-         forests cross)))
-
 (defn population-crossover
-  "Cross over the forests in a population."
-  [population] (assoc population :forests (forests-crossover (:forests population))))
+  [population]
+  (let [cross-list (repeatedly
+                    (count (:forests population))
+                    #(-> population :forests rand-nth :trees rand-nth))]
+    (assoc population :forests
+           (map (fn [forest tree]
+                  (assoc forest :trees
+                         (conj (rest (shuffle (:trees forest))) tree)))
+                (:forests population) cross-list))))
+
+(defn population-forest-update
+  [population fit gens]
+  (population-crossover (assoc population :forests
+                               (map #(generations % fit gens)
+                                    (:forests population)))))
+
+(defn population-best-update
+  [population]
+  (assoc population :best
+         (first (sort-by :error
+                         (map :best
+                              (:forests population))))))
 
 ;;; **parallel-generations** is the function that runs the show. It runs the
 ;;; generations function defined above on each of the forests (and does so in
@@ -368,21 +390,15 @@
      (parallel-generations cycles gens (build-population attr pop-size forest-size) report fit))
   ([cycles gens population report fit]
      (if (or (zero? cycles)
-             (and (not (nil? (-> population :best :error)))
-                  (zero? (-> population :best :error))))
-       (do (println cycles)(println (-> population :best :error))(flush) population)
+             (zero? (-> population :best :error)))
+       population
        (do (when (and (not (nil? (:best population)))
                       (zero? (mod cycles (:reprate report))))
              ((:repfunc report) (:best population))) ;; report
            ;; similar pattern to the generations function
-           (let [population (population-crossover
-                             (assoc population :forests
-                                    (map #(generations % fit gens)
-                                          (:forests population))))
-                 best (if (nil? (:best population))
-                        (get-best (map :best (:forests population)))
-                        (lower-error [(get-best (map :best (:forests population)))
-                                      (:best population)]))]
+           (let [population (population-best-update
+                             (population-forest-update
+                              population fit gens))]
              (recur (- cycles 1) gens population report fit))))))
 
 ;;; ### Options

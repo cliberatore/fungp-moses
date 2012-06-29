@@ -54,8 +54,6 @@
 (defn sin [x] (Math/sin x))
 (defn cos [x] (Math/cos x))
 (defn tan [x] (Math/tan x))
-(defn abs [x] (if (< x 0) (* -1 x) x))
-
 
 (defn ifeq [a b c d] (if (= a b) c d))
 (defn ifnoteq [a b c d] (if (not (= a b)) c d))
@@ -85,12 +83,12 @@
 
 ;;(def symbtest '(fn [a] (/ Math/E (* Math/PI (+ a (inv (sin a)))))))
 (def symbtest '(fn [a]
-                 (if (= a 0) 100
-                     (- (Math/abs a) (Math/sin a)))))
+                 (if (> a 0) (inv a)
+                     (* a a))))
 
 (def testfit (eval symbtest))
 
-(def rtests (range -20 20))
+(def rtests (range -50 50))
 
 (def testdata (map vector rtests))
 
@@ -99,10 +97,11 @@
 (defn repfunc
   "Reporting function. This one is designed to only report when invoked in
    parallel-population."
-  [{tree :tree fitness :fitness}]
+  [{code :code error :error}]
   (flush)
-  (print "Code:\t")(print (list 'fn symbols (conv-code tree funcs)))(print "\n")
-  (print "Error:\t")(print fitness)(print "\n\n"))
+  (print "Code:\t")(print code)(print "\n")
+  (print "Error:\t")(print error)(print "\n\n")
+  (flush))
 
 (defn test-gp
   "A simple test function for fungp. It attempts to match a function by supplying
@@ -116,18 +115,16 @@
   (print symbtest)
   (println "\nLower numbers are better. Results shown are sum of error. Best so far:\n")
   (def results (run-gp {:gens iter :cycles cycle :term [-1 1]
-                        :pop-size 8 :forest-size 150 :depth [2 3]
+                        :pop-size 12 :forest-size 250 :depth [2 3]
                         :symbols symbols :funcs funcs
                         :report {:repfunc repfunc  :reprate 1}
                         :tournament-size 5
                         :fit {:actual actual :tests testdata}}))
   (def best-result (:best results))
-  (def out-func (list 'fn symbols (conv-code (:tree best-result) funcs)))
   (println "Done!")
-  (println out-func)
-  (print "Lowest error: ")(print (:fitness best-result))(print "\n")
+  (print "Lowest error: ")(print (:error best-result))(print "\n")
   ;; return quoted list of best function
-  out-func)
+  (:best results))
 
 (defn -main []
   (test-gp 160 4))

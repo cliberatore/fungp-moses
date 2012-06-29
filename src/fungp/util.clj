@@ -16,9 +16,11 @@
     (if (fn? tree) (:name (find-op tree funcs)) tree)
     (map (fn [t] (conv-code t funcs)) tree)))
 
+(defn abs [x] (if (< x 0) (* -1 x) x))
+
 (defn off-by
   "Calculate error."
-  [x y] (Math/abs (- x y)))
+  [x y] (abs (- x y)))
 
 (defn on-key
   "Apply a function to a part of a record."
