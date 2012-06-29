@@ -64,17 +64,14 @@
 (def funcs [{:op * :arity 2 :name '*}
             {:op + :arity 2 :name '+} 
             {:op - :arity 2 :name '-}
-            {:op sdiv :arity 2 :name '/}
-            {:op inc :arity 1 :name 'inc} 
-            {:op dec :arity 1 :name 'dec}
-            {:op inv :arity 1 :name 'inv}
-            {:op abs :arity 1 :name 'abs}
-            {:op sin :arity 1 :name 'Math/sin}
-            {:op cos :arity 1 :name 'Math/cos}
-            {:op tan :arity 1 :name 'Math/tan}
-            {:op ifeq :arity 4 :name 'ifeq}
-            {:op ifnoteq :arity 4 :name 'ifnoteq}
-            {:op gte :arity 4 :name 'gte}
+           ;{:op sdiv :arity 2 :name '/}
+           ;{:op inc :arity 1 :name 'inc} 
+           ;{:op dec :arity 1 :name 'dec}
+           ;{:op inv :arity 1 :name 'inv}
+           ;{:op abs :arity 1 :name 'abs}
+           ;{:op ifeq :arity 4 :name 'ifeq}
+           ;{:op ifnoteq :arity 4 :name 'ifnoteq}
+           ;{:op gte :arity 4 :name 'gte}
             ])
 
 (def symbols '[a])
@@ -82,13 +79,11 @@
 (def lits ['Math/PI 'Math/E])
 
 ;;(def symbtest '(fn [a] (/ Math/E (* Math/PI (+ a (inv (sin a)))))))
-(def symbtest '(fn [a]
-                 (if (> a 0) (inv a)
-                     (* a a))))
+(def symbtest '(fn [a] (+ (* a a) (* -1 (+ 1 (* -1 a))))))
 
 (def testfit (eval symbtest))
 
-(def rtests (range -50 50))
+(def rtests (range -100 100))
 
 (def testdata (map vector rtests))
 
@@ -114,8 +109,8 @@
   (println "Attempting to match this function:")
   (print symbtest)
   (println "\nLower numbers are better. Results shown are sum of error. Best so far:\n")
-  (def results (run-gp {:gens iter :cycles cycle :term [-1 1]
-                        :pop-size 12 :forest-size 250 :depth [2 3]
+  (def results (run-gp {:gens iter :cycles cycle :term [-1 1] :depth [2 3] :max-height 25
+                        :pop-size 12 :forest-size 250
                         :symbols symbols :funcs funcs
                         :report {:repfunc repfunc  :reprate 1}
                         :tournament-size 5
@@ -123,8 +118,7 @@
   (def best-result (:best results))
   (println "Done!")
   (print "Lowest error: ")(print (:error best-result))(print "\n")
-  ;; return quoted list of best function
-  (:best results))
+  best-result)
 
 (defn -main []
   (test-gp 160 4))

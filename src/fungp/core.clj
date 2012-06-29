@@ -21,6 +21,8 @@
 ;;;  * Custom evaluation and reporting logic
 ;;;  * Parallelism: subpopulations run in native threads
 ;;;  * Evolve and test functions of multiple arities
+;;;  * Options for tree leaves: number literals, symbols, or quoted Lisp code
+;;;  * Data structures compiled to Java classes
 ;;;
 ;;; How do I use it?
 ;;; ----------------
@@ -28,29 +30,24 @@
 ;;; Call the **run-gp** function. See the source code for the full list of 
 ;;; keyword parameters.
 ;;;
-;;; Here's an example:
+;;; Here's an example, taken from sample.clj:
 ;;;
-;;;     (run-gp {:gens iter :cycles cycle
-;;;              :pop-size 6 :forest-size 50
-;;;              :symbols symbols :funcs funcs
-;;;              :term-max 1 :term-min -1
-;;;              :max-depth 4 :min-depth 2
-;;;              :repfunc repfunc  :reprate 1
-;;;              :mutation-rate 0.1 :tournament-size 5
-;;;              :actual actual :tests testdata})
+;;;      (def results (run-gp {:gens iter :cycles cycle :term [-1 1]
+;;;                            :pop-size 12 :forest-size 250 :depth [2 3]
+;;;                            :symbols symbols :funcs funcs
+;;;                            :report {:repfunc repfunc  :reprate 1}
+;;;                            :tournament-size 5
+;;;                            :fit {:actual actual :tests testdata}}))
 ;;;
-;;; Functions are defined as a sequence of maps, each having keys :op,
-;;; :arity, and :name. :op is for the function, :arity is the number
-;;; of arguments, and :name is the symbol used to print it out if it's
-;;; in the answer at the end (you usually want it to be the same as the
-;;; name of the function). 
+;;; Functions are defined as a sequence of maps, each having keys :op
+;;; and :arity.
 ;;;
 ;;; Here's an example:
 ;;;
-;;;      [{:op *    :arity 2 :name '*}
-;;;       {:op +    :arity 2 :name '+}
-;;;       {:op sdiv :arity 2 :name '/}
-;;;       {:op sin  :arity 1 :name 'sin}]
+;;;      [{:op *    :arity 2}
+;;;       {:op +    :arity 2}
+;;;       {:op sdiv :arity 2}
+;;;       {:op sin  :arity 1}]
 ;;;
 ;;; For more information on how to use it, see the source code below. The
 ;;; code is sometimes dense (it's amazing how a few lines of lisp code can
@@ -59,24 +56,38 @@
 ;;; concepts, especially if you have some familiarity with lisp.
 
 (ns fungp.core
-  "This is the start of the core of the library."
+  "This is the start of the core of the library. Include the fungp.core namespace
+   if you want to use run-gp."
   [:use fungp.util])
 
 ;;; ### Data structures
 ;;; 
-;;; These are the basic data structures that will be used in the application.
+;;; These are the basic data structures that will be used in the application. Most
+;;; of them should be self-explanatory, except TreeAttributes -- it holds any
+;;; information needed to manipulate trees. A minor complication is the inclusion
+;;; of tournament-size, since it acts on forests rather than trees, so it picks
+;;; a tree from the forest to read tournament-size from.
 
-(defrecord TreeAttributes [max-height symbols funcs term depth mutation-rate tournament-size])
+(defrecord TreeAttributes
+    [max-height symbols funcs term depth mutation-rate tournament-size])
 
-(defrecord TestPairs [tests actual])
+(defrecord TestPairs
+    [tests actual])
 
-(defrecord Reporting [repfunc reprate])
+(defrecord Reporting
+    [repfunc reprate])
 
-(defrecord Tree [code attributes error])
+(defrecord Tree
+    [code attributes error])
 
-(defrecord Forest [trees best])
+(defrecord Forest
+    [trees best])
 
-(defrecord Population [forests best])
+(defrecord Population
+    [forests best])
+
+;;; The main entry function takes a hash as a parameter. Before using it I merge it
+;;; with a hash of default values.
 
 (defn build-options
   "Take passed-in parameters and merge them with default parameters to construct
@@ -86,13 +97,30 @@
                   :literal-terms [] :term [] :max-height 25}]
     (merge defaults o)))
 
+;;; Any data needed to manipulate trees is stored in a TreeAttributes record. One
+;;; search will share a single TreeAttribute record. 
+
 (defn make-attributes
   "Take the options hash and make a TreeAttributes record."
   [o] (map->TreeAttributes (select-keys o [:max-height :symbols :funcs :term :depth
                                            :mutation-rate :tournament-size])))
 
+;;; ### Tree manipulation
+;;;
+;;; The following section of code deals with building and manipulating the trees of code,
+;;; which are actually quoted lists of Lisp code. The goal is to make sure valid code is
+;;; generated to start with, and that all operations (crossover, mutation, etc) output
+;;; valid code. If those two conditions are true, the algorithm will produce valid code at
+;;; the end of each iteration (generation).
+;;;
+;;; To create the leaves of the tree I either use number literals (between a specified range),
+;;; parameter symbols (which correspond to the input of the function), or "literal-terms," which
+;;; can be any quoted Lisp code, from constants like Math/PI to side-effect code like file I/O.
+
 (defn terminal
-  "Return a random terminal for the source tree. Takes a tree attribute record as a parameter."
+  "Return a random terminal for the source tree. Takes a TreeAttribute record as a parameter.
+   Terminals are pulled from :term (for number literals), :symbols (for parameters), and
+   :literal-terms (for everything else) -- each read from the TreeAttribute record."
   [attr]
   (let [term (:term attr)
         literal-terms (:literal-terms attr)
@@ -101,13 +129,15 @@
       (+ (first term) (rand-int (- (second term) (first term))))
       (rand-nth (concat literal-terms symbols)))))
 
-;;; ### Tree manipulation
-;;;
 ;;; My method of random tree generation is a combination of the "grow" and "fill"
 ;;; methods of tree building, similar to Koza's "ramped half-and-half" method.
+;;;
+;;; Here is the first instance of a pattern I use occasionally: if I end a function with
+;;; "-code" it means it operates on the list of code itself, rather than a Tree record.
 
 (defn build-tree-code
-  "Build a random tree of lisp code. The tree will be filled up to the minimum depth,
+  "Designed to be called by build-tree.
+   Build a random tree of lisp code. The tree will be filled up to the minimum depth,
    then grown to the maximum depth. Minimum and maximum depth are specified in the
    attribute record, but can optionally be passed explicitly."
   ([attr]
@@ -124,9 +154,9 @@
 (defn build-tree
   "Build a Tree record from a TreeAttribute record. Optionally takes depth arguments."
   ([attr]
-     (Tree. (build-tree-code attr) attr Double/MAX_VALUE))
+     (Tree. (build-tree-code attr) attr Integer/MAX_VALUE))
   ([attr depth-max depth-min]
-     (Tree. (build-tree-code attr depth-max depth-min) attr Double/MAX_VALUE)))
+     (Tree. (build-tree-code attr depth-max depth-min) attr Integer/MAX_VALUE)))
 
 ;;; First we define a function for creating a collection of trees, then one for
 ;;; creating a collection of a collection of trees.
@@ -149,7 +179,9 @@
 (defn max-tree-height-code
   "Find the maximum height of a code tree."
   [code]
-  (if (not (seq? code)) 0 (+ 1 (reduce max (map max-tree-height-code code)))))
+  (if (not (seq? code)) 0
+      (+ 1 (reduce max
+                   (map max-tree-height-code code)))))
 
 ;;; **rand-subtree-code** and **replace-subtree-code** are two of the most important functions.
 ;;; They define how the lists of code are modified.
@@ -186,8 +218,14 @@
                           (rand-int n)))
                    (nthrest code (+ r 1)))))))
 
+;;; One minor problem with the method of evaluation I'm using is that there's a limit to
+;;; how big the generated functions can be. Since they're compiled into JVM bytecode,
+;;; they are subject to the JVM's limit on how big methods can be. This is a huge limit
+;;; but because it technically exists I make a maximum height mandatory for generated
+;;; trees.
+
 (defn truncate
-  "Prevent trees from growing too big"
+  "Prevent trees from growing too big by doing subtree lifting when they hit the cap."
   [tree]
   (if (and (-> tree :attributes :max-height)
            (< (max-tree-height-code (:code tree))
@@ -208,13 +246,17 @@
 ;;; changes and increases genetic diversity.
 
 (defn mutate
-  "Mutate a tree by substituting in a randomly-built tree of code."
+  "Mutate a tree by substituting in a randomly-built tree of code. This function
+   also calls truncate. There are three types of mutation supported: replacing a
+   random subtree with a new random tree, replacing a random subtree with a
+   random terminal, and lifting a random subtree to the root."
   [tree]
   (truncate (if (flip (-> tree :attributes :mutation-rate))
               (if (flip 0.5)
                 (if (or (flip 0.5)
                         (< (max-tree-height-code (:code tree))
                            (-> tree :attributes :max-height)))
+                  ;; assoc the code into the Tree record
                   (assoc tree :code (replace-subtree-code
                                      (:code tree) (build-tree-code (:attributes tree))))
                   (assoc tree :code (replace-subtree-code
@@ -253,22 +295,24 @@
 ;;; material to the next generation.
 
 (defn find-error
-  "Compares the output of the individual tree with the test data to calculate error."
+  "Compares the output of the individual tree with the test data to calculate error.
+   This is where the generated trees are compiled and executed."
   [tree fit]
-  (let [f-symb (list 'fn
+  (let [f-symb (list 'fn ;; format the quoted list to be eval'd
                       (-> tree :attributes :symbols)
                       (:code tree))
-        f (eval f-symb)]
-    (reduce + (map (fn [x y] (- (max x y) (min x y)))
+        f (eval f-symb)] ;; compile the generated function
+    (reduce + (map (fn [x y] (Math/abs (- y x)))
                    (map #(apply f %) (:tests fit))
                    (:actual fit)))))
 
 (defn tree-error
+  "Calls find-error, takes a Tree record."
   [tree fit]
   (assoc tree :error (find-error tree fit)))
 
 (defn forest-error
-  "Runs find-error on every tree in a forest, assoc'ing the :error attribute in the record."
+  "Runs tree-error on every tree in a forest, assoc'ing the :error attribute in the record."
   [forest fit]
   (assoc forest :trees (map #(tree-error % fit) (:trees forest))))
 
@@ -278,11 +322,12 @@
   (first (sort-by :error (:trees forest))))
 
 (defn tournament-select-error
-  "Select out a few individual trees from the forest and run a
+  "Designed to be called by tournament-select.
+   Select out a few individual trees from the forest and run a
    tournament amongst them. The two most fit in the tournament are crossed over
    to produce a child. Larger tournaments lead to more selective pressure."
   [forest]
-  (let [attr (-> forest :trees first :attributes) ;; get attributes from a tree
+  (let [attr (-> forest :trees first :attributes) ;; get attributes from some tree
         tournament (repeatedly (:tournament-size attr) #(rand-nth (:trees forest)))
         selected (sort-by :error tournament)]
     (crossover (first selected) (second selected))))
@@ -296,15 +341,10 @@
 
 ;;; ### Putting it together
 ;;;
-;;; This takes care of all the steps necessary to complete one generation of the algorithm.
-;;; The process can be extended to multiple generations with a simple tail recursive
-;;; function.
+;;; The next thing to do is combine the operations. One generation consists
+;;; of applying the mutation and selection phases on a forest of trees.
 ;;;
-;;; There are some extra considerations here. The function should:
-;;;
-;;;  * stop when a perfect individual has been found, meaning fitness is zero
-;;;  * be resumable, meaning the search can halt, returning information, and that information
-;;;    can be passed back in to start the search at the same place
+;;; 
 
 (defn forest-best-update
   "Update the :best attribute of the Forest record."
@@ -319,17 +359,18 @@
 (defn elite
   "Take the best tree so far and put it in the current forest."
   [forest]
-  (assoc forest :trees (conj (rest (shuffle (:trees forest))) (:best forest))))
+  (assoc forest :trees (conj (rest (:trees forest)) (:best forest))))
 
-(defn process-forest-generation
-  "Run selection and mutation phases on a Forest record."
-  [forest]
-  (-> forest mutate-forest tournament-select elite))
+;;; This takes care of all the steps necessary to complete one generation of the algorithm.
+;;; The process can be extended to multiple generations with a simple tail recursive
+;;; function.
+;;;
+;;; There are some extra considerations here. The generation function should:
+;;;
+;;;  * stop when a perfect individual has been found, meaning fitness is zero
+;;;  * be resumable, meaning the search can halt, returning information, and that information
+;;;    can be passed back in to start the search at the same place
 
-(defn zero-not-nil?
-  [x] (and (not (nil? x))
-           (zero? x)))
-  
 (defn generations
   "Run n generations of a forest. Over the course of one generation, the trees in
    the forest will go through selection, crossover, and mutation. The best individual
@@ -339,8 +380,8 @@
   (if (or (zero? n)
           (zero? (-> forest :best :error)))
     forest ;; return current forest
-    (let [forest (forest-best-update (process-forest-generation
-                                      (forest-error forest fit)))]
+    (let [forest (-> forest (forest-error ,,, fit) forest-best-update elite
+                     mutate-forest tournament-select)]
       ;; the tail-recursive call for the next generation
       (recur forest fit (- n 1)))))
 
@@ -352,6 +393,8 @@
 ;;; and cross over between them.
 
 (defn population-crossover
+  "Migrate individual trees between populations by making a list of individuals pulled
+   randomly and merging it back into the population in a different order."
   [population]
   (let [cross-list (repeatedly
                     (count (:forests population))
@@ -359,16 +402,20 @@
     (assoc population :forests
            (map (fn [forest tree]
                   (assoc forest :trees
-                         (conj (rest (shuffle (:trees forest))) tree)))
+                         (conj (rest (:trees forest)) tree)))
                 (:forests population) cross-list))))
 
 (defn population-forest-update
+  "Update the :forest attribute of a Population by calling generation and
+   calling population-crossover"
   [population fit gens]
   (population-crossover (assoc population :forests
                                (map #(generations % fit gens)
                                     (:forests population)))))
 
 (defn population-best-update
+  "Update the :best attribute of a Population by finding the lowest error
+   among the :best attributes of each forest."
   [population]
   (assoc population :best
          (first (sort-by :error
@@ -387,6 +434,7 @@
    you can simply pass in the population explicitly and this function will start
    where it left off."
   ([cycles gens pop-size forest-size attr report fit]
+     ;; no population generated yet
      (parallel-generations cycles gens (build-population attr pop-size forest-size) report fit))
   ([cycles gens population report fit]
      (if (or (zero? cycles)
@@ -394,8 +442,8 @@
        population
        (do (when (and (not (nil? (:best population)))
                       (zero? (mod cycles (:reprate report))))
-             ((:repfunc report) (:best population))) ;; report
-           ;; similar pattern to the generations function
+             (when (not= (:error (:best population)) Integer/MAX_VALUE)
+               ((:repfunc report) (:best population)))) ;; report
            (let [population (population-best-update
                              (population-forest-update
                               population fit gens))]
@@ -405,19 +453,21 @@
 ;;;
 ;;; Finally, run-gp exposes a simple API, in the form of a single map parameter. The following options keywords are accepted:
 ;;;
-;;; * *pop-size* --- the number of forests, and the number of top-level threads to run
-;;; * *forest-size* --- the number of trees in each forest
-;;; * *max-height* --- the maximum height of the tree (larger trees will be shrunk)
-;;; * *symbols* --- a sequence of symbols to be placed in the generated code as terminals
-;;; * *funcs* --- a sequence (following a certain format; see core.clj or sample.clj) describing the functions to be used in the generated code
-;;; * *term* --- a vector representing the range of number terminals to be used in generated code (empty for no number terminals)
-;;; * *depth* --- a vector representing the minimum and maximum height of randomly generated trees (defaults to [1 2])
-;;; * *repfunc* --- the reporting function, which gets passed the best-seen individual (a hash with keys :tree and :fitness; see sample.clj for an example)
-;;; * *reprate* --- the reporting rate; every nth cycle repfunc will be called
-;;; * *mutation-rate* --- a number between 0 and 1 that determines the chance of mutation (defaults to 0.05)
-;;; * *tournament-size* --- the number of individuals in each tournament selection (defaults to 5)
-;;; * *tests* --- test inputs for your function, in the form of a sequence of vectors (each should match the length of *symbols* above)
-;;; * *actual* --- the correct outputs for each of the *tests* elements
+;;; * *:pop-size* --- the number of forests, and the number of top-level threads to run
+;;; * *:forest-size* --- the number of trees in each forest
+;;; * *:max-height* --- the maximum height of the tree (larger trees will be shrunk)
+;;; * *:symbols* --- a sequence of symbols to be placed in the generated code as terminals
+;;; * *:funcs* --- a sequence (following a certain format; see core.clj or sample.clj) describing the functions to be used in the generated code
+;;; * *:term* --- a vector representing the range of number terminals to be used in generated code (empty for no number terminals)
+;;; * *:depth* --- a vector representing the minimum and maximum height of randomly generated trees (defaults to [1 2])
+;;; * *:report
+;;;     - *:reprate* --- the reporting function, which gets passed the best-seen individual (a hash with keys :tree and :fitness; see sample.clj for an example)
+;;;     - *:reprate* --- the reporting rate; every nth cycle repfunc will be called
+;;; * *:mutation-rate* --- a number between 0 and 1 that determines the chance of mutation (defaults to 0.05)
+;;; * *:tournament-size* --- the number of individuals in each tournament selection (defaults to 5)
+;;; * *:fit*
+;;;     - *:tests* --- test inputs for your function, in the form of a sequence of vectors (each should match the length of *symbols* above)
+;;;     - *:actual* --- the correct outputs for each of the *tests* elements
 
 
 (defn run-gp

@@ -9,13 +9,6 @@
   "Find the entry in the function sequence for a given operator."
   [op funcs] (first (filter (fn [x] (= (:op x) op)) funcs)))
 
-(defn conv-code
-  "Take a tree and return a list of symbols based on the :name symbols."
-  [tree funcs]
-  (if (not (seq? tree))
-    (if (fn? tree) (:name (find-op tree funcs)) tree)
-    (map (fn [t] (conv-code t funcs)) tree)))
-
 (defn abs [x] (if (< x 0) (* -1 x) x))
 
 (defn off-by
