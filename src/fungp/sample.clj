@@ -36,7 +36,8 @@
 
 (ns fungp.sample
   (:use fungp.core)
-  (:use fungp.util))
+  (:use fungp.util)
+  (:use clojure.pprint))
 
 ;;; Safe versions of inverse and divide to avoid divide-by-zero errors.
 
@@ -61,15 +62,17 @@
 
 
 ;;; Functions are defined in a vector of maps like this.
-(def funcs [{:op * :arity 2 :name '*}
-            {:op + :arity 2 :name '+} 
-            {:op - :arity 2 :name '-}
-           ;{:op sdiv :arity 2 :name '/}
-           ;{:op inc :arity 1 :name 'inc} 
-           ;{:op dec :arity 1 :name 'dec}
+(def funcs [#fungp.core.PrimitiveProcedure[* 2]
+            #fungp.core.PrimitiveProcedure[+ 2] 
+            #fungp.core.PrimitiveProcedure[- 2]
+            #fungp.core.PrimitiveProcedure[sdiv 2]
+           ;#fungp.core.PrimitiveProcedure[inc 1] 
+           ;#fungp.core.PrimitiveProcedure[dec 1]
+            #fungp.core.PrimitiveProcedure[sin 1]
+            #fungp.core.PrimitiveProcedure[cos 1]
            ;{:op inv :arity 1 :name 'inv}
            ;{:op abs :arity 1 :name 'abs}
-           ;{:op ifeq :arity 4 :name 'ifeq}
+           ;#fungp.core.PrimitiveProcedure[ifeq 4]
            ;{:op ifnoteq :arity 4 :name 'ifnoteq}
            ;{:op gte :arity 4 :name 'gte}
             ])
@@ -79,14 +82,13 @@
 (def lits ['Math/PI 'Math/E])
 
 ;;(def symbtest '(fn [a] (/ Math/E (* Math/PI (+ a (inv (sin a)))))))
-(def symbtest '(fn [a] (+ (* a a) (* -1 (+ 1 (* -1 a))))))
+(def symbtest '(fn [a] (sdiv (cos a) (sin a))))
 
 (def testfit (eval symbtest))
 
-(def rtests (range -100 100))
-
+;(def rtests (range -100 100))
+(def rtests [-0.99 -0.9 -0.5 -0.3 -0.1 -0.01 0 0.01 0.1 0.3 0.5 0.9 0.99])
 (def testdata (map vector rtests))
-
 (def actual (map testfit rtests))
 
 (defn repfunc
@@ -106,13 +108,15 @@
   (println "fungp :: Functional Genetic Programming in Clojure")
   (println "Mike Vollmer, 2012")
   (println "==================================================\n")
-  (println "Attempting to match this function:")
-  (print symbtest)
+  ;;(println "Attempting to match this function:")
+  ;;(print symbtest)
+  (pprint (zipmap rtests actual))
   (println "\nLower numbers are better. Results shown are sum of error. Best so far:\n")
-  (def results (run-gp {:gens iter :cycles cycle :term [-1 1] :depth [2 3] :max-height 25
-                        :pop-size 12 :forest-size 250
+  (def results (run-gp {:gens iter :cycles cycle
+                        :max-height 15
+                        :pop-size 10 :forest-size 500
                         :symbols symbols :funcs funcs
-                        :report {:repfunc repfunc  :reprate 1}
+                        :report {:repfunc repfunc  :reprate 5}
                         :tournament-size 5
                         :fit {:actual actual :tests testdata}}))
   (def best-result (:best results))

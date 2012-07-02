@@ -18,3 +18,8 @@
 (defn on-key
   "Apply a function to a part of a record."
   [k r f] (assoc r k (f (k r))))
+
+(defn in? 
+  "true if seq contains elm"
+  [seq elm]  
+  (some #(= elm %) seq))

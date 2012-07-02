@@ -68,6 +68,9 @@
 ;;; of tournament-size, since it acts on forests rather than trees, so it picks
 ;;; a tree from the forest to read tournament-size from.
 
+(defrecord PrimitiveProcedure
+    [op arity])
+
 (defrecord TreeAttributes
     [max-height symbols funcs term depth mutation-rate tournament-size])
 
@@ -94,7 +97,7 @@
    the options hash that gets passed to the other functions."
   [o]
   (let [defaults {:depth [1 2] :mutation-rate 0.1 :tournament-size 3
-                  :literal-terms [] :term [] :max-height 25}]
+                  :leaves [] :term [] :max-height 25}]
     (merge defaults o)))
 
 ;;; Any data needed to manipulate trees is stored in a TreeAttributes record. One
@@ -123,7 +126,7 @@
    :literal-terms (for everything else) -- each read from the TreeAttribute record."
   [attr]
   (let [term (:term attr)
-        literal-terms (:literal-terms attr)
+        literal-terms (:leaves attr)
         symbols (:symbols attr)]
     (if (and (not (empty? term)) (flip 0.5))
       (+ (first term) (rand-int (- (second term) (first term))))
@@ -302,7 +305,7 @@
                       (-> tree :attributes :symbols)
                       (:code tree))
         f (eval f-symb)] ;; compile the generated function
-    (reduce + (map (fn [x y] (Math/abs (- y x)))
+    (reduce + (map (fn [x y] (if (> x y) (- x y) (- y x)))
                    (map #(apply f %) (:tests fit))
                    (:actual fit)))))
 
@@ -380,8 +383,9 @@
   (if (or (zero? n)
           (zero? (-> forest :best :error)))
     forest ;; return current forest
-    (let [forest (-> forest (forest-error ,,, fit) forest-best-update elite
-                     mutate-forest tournament-select)]
+    (let [forest (-> forest (forest-error ,,, fit) ;; calculate error before
+                     tournament-select mutate-forest
+                     (forest-error ,,, fit) forest-best-update)] ;; and after
       ;; the tail-recursive call for the next generation
       (recur forest fit (- n 1)))))
 
@@ -396,13 +400,12 @@
   "Migrate individual trees between populations by making a list of individuals pulled
    randomly and merging it back into the population in a different order."
   [population]
-  (let [cross-list (repeatedly
-                    (count (:forests population))
-                    #(-> population :forests rand-nth :trees rand-nth))]
+  (let [cross-list (map #(-> % :trees rand-nth) (shuffle (-> population :forests)))]
     (assoc population :forests
            (map (fn [forest tree]
-                  (assoc forest :trees
-                         (conj (rest (:trees forest)) tree)))
+                  (if (not (in? (:trees forest) tree))
+                    (assoc forest :trees (conj (-> forest :trees shuffle rest) tree))
+                    forest))
                 (:forests population) cross-list))))
 
 (defn population-forest-update
@@ -442,11 +445,11 @@
        population
        (do (when (and (not (nil? (:best population)))
                       (zero? (mod cycles (:reprate report))))
-             (when (not= (:error (:best population)) Integer/MAX_VALUE)
+             (when (not= (-> population :best :error) Integer/MAX_VALUE)
                ((:repfunc report) (:best population)))) ;; report
-           (let [population (population-best-update
-                             (population-forest-update
-                              population fit gens))]
+           (let [population (-> population
+                                (population-forest-update ,,, fit gens)
+                                population-best-update)]
              (recur (- cycles 1) gens population report fit))))))
 
 ;;; ### Options
