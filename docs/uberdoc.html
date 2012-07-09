@@ -3029,7 +3029,7 @@ net.brehaut.ClojureTools = (function (SH) {
   };
 })(SyntaxHighlighter);
 </script><title>fungp -- Marginalia</title></head><body><table><tr><td class="docs"><div class="header"><h1 class="project-name">fungp</h1><h2 class="project-version">0.1</h2><br /><p>Genetic programming in Clojure</p>
-</div><div class="dependencies"><h3>dependencies</h3><table><tr><td class="dep-name">org.clojure/clojure</td><td class="dotted"><hr /></td><td class="dep-version">1.3.0</td></tr><tr><td class="dep-name">org.clojure/math.numeric-tower</td><td class="dotted"><hr /></td><td class="dep-version">0.0.1</td></tr></table></div><div class="dependencies"><h3>dev dependencies</h3><table><tr><td class="dep-name">lein-marginalia</td><td class="dotted"><hr /></td><td class="dep-version">0.7.0</td></tr></table></div></td><td class="codes" style="text-align: center; vertical-align: middle;color: #666;padding-right:20px"><br /><br /><br />(this space intentionally left almost blank)</td></tr><tr><td class="docs"><div class="toc"><a name="toc"><h3>namespaces</h3></a><ul><li><a href="#fungp.core">fungp.core</a></li><li><a href="#fungp.sample">fungp.sample</a></li><li><a href="#fungp.sample-main">fungp.sample-main</a></li><li><a href="#fungp.util">fungp.util</a></li></ul></div></td><td class="codes">&nbsp;</td></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#fungp.core" name="fungp.core"><h1 class="project-name">fungp.core</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs"><p>Mike Vollmer, 2012, GPL</p>
+</div><div class="dependencies"><h3>dependencies</h3><table><tr><td class="dep-name">org.clojure/clojure</td><td class="dotted"><hr /></td><td class="dep-version">1.3.0</td></tr></table></div><div class="dependencies"><h3>dev dependencies</h3><table><tr><td class="dep-name">lein-marginalia</td><td class="dotted"><hr /></td><td class="dep-version">0.7.0</td></tr></table></div></td><td class="codes" style="text-align: center; vertical-align: middle;color: #666;padding-right:20px"><br /><br /><br />(this space intentionally left almost blank)</td></tr><tr><td class="docs"><div class="toc"><a name="toc"><h3>namespaces</h3></a><ul><li><a href="#fungp.core">fungp.core</a></li><li><a href="#fungp.sample">fungp.sample</a></li><li><a href="#fungp.util">fungp.util</a></li></ul></div></td><td class="codes">&nbsp;</td></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#fungp.core" name="fungp.core"><h1 class="project-name">fungp.core</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs"><p>Mike Vollmer, 2012, GPL</p>
 
 <p><a href="https://github.com/probabilityZero/fungp">Project hosted on GitHub</a></p>
 
@@ -3054,6 +3054,8 @@ has the following features:</p>
 <li>Custom evaluation and reporting logic</li>
 <li>Parallelism: subpopulations run in native threads</li>
 <li>Evolve and test functions of multiple arities</li>
+<li>Options for tree leaves: number literals, symbols, or quoted Lisp code</li>
+<li>Data structures compiled to Java classes</li>
 </ul>
 
 <h2>How do I use it?</h2>
@@ -3061,29 +3063,25 @@ has the following features:</p>
 <p>Call the <strong>run-gp</strong> function. See the source code for the full list of 
 keyword parameters.</p>
 
-<p>Here's an example:</p>
+<p>Here's an example, taken from sample.clj:</p>
 
-<pre><code>(run-gp {:gens iter :cycles cycle
-         :pop-size 6 :forest-size 50
-         :symbols symbols :funcs funcs
-         :term-max 1 :term-min -1
-         :max-depth 4 :min-depth 2
-         :repfunc repfunc  :reprate 1
-         :mutation-rate 0.1 :tournament-size 5
-         :actual actual :tests testdata})
+<pre><code> (def results (run-gp {:gens iter :cycles cycle :term [-1 1]
+                       :pop-size 12 :forest-size 250 :depth [2 3]
+                       :symbols symbols :funcs funcs
+                       :report {:repfunc repfunc  :reprate 1}
+                       :tournament-size 5
+                       :fit {:actual actual :tests testdata}}))
 </code></pre>
 
-<p>Functions are defined as a sequence of maps, each having keys :op,
-:arity, and :name. :op is for the function, :arity is the number
-of arguments, and :name is the symbol used to print it out if it's
-in the answer at the end (you probably want it to be the same as the
-name of the function).</p>
+<p>Functions are defined as a sequence of maps, each having keys :op
+and :arity.</p>
 
 <p>Here's an example:</p>
 
-<pre><code> [{:op *   :arity 2 :name '*}
-  {:op +   :arity 2 :name '+}
-  {:op sin :arity 1 :name 'sin}]
+<pre><code> [{:op *    :arity 2}
+  {:op +    :arity 2}
+  {:op sdiv :arity 2}
+  {:op sin  :arity 1}]
 </code></pre>
 
 <p>For more information on how to use it, see the source code below. The
@@ -3091,72 +3089,108 @@ code is sometimes dense (it's amazing how a few lines of lisp code can
 do as much or more as a hundred lines of a more verbose language like
 C or Java), but it shouldn't be too hard to understand the general
 concepts, especially if you have some familiarity with lisp.</p>
-</td><td class="codes"></td></tr><tr><td class="docs"><p>This is the start of the core of the library.</p>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>This is the start of the core of the library. Include the fungp.core namespace
+   if you want to use run-gp.</p>
 </td><td class="codes"><pre class="brush: clojure">(ns fungp.core
-  (:use fungp.util))</pre></td></tr><tr><td class="docs"><h3>Options</h3>
+  [:use fungp.util])</pre></td></tr><tr><td class="docs"><h3>Data structures</h3>
 
-<p>Before I get into the implementation of the algorithm, I need to get this
-out of the way. The options hash has all the information necessary to
-run the rest of the functions, and for sake of simplicity I just lump it
-all together and pass it to any function that needs it. This function takes
-the user's input and merges it with a hash of defaults (the user's options
-will override the defaults, but the defaults will be used if the user does
-not specify that option).</p>
-
-<p>The following options keywords are accepted:</p>
-
-<ul>
-<li><em>pop-size</em> --- the number of forests, and the number of top-level threads to run</li>
-<li><em>forest-size</em> --- the number of trees in each forest</li>
-<li><em>symbols</em> --- a sequence of symbols to be placed in the generated code as terminals</li>
-<li><em>funcs</em> --- a sequence (following a certain format; see core.clj or sample.clj) describing the functions to be used in the generated code</li>
-<li><em>term-max</em> and <em>term-min</em> --- the range of number terminals to be used in generated code (default to 1 and -1, respectively)</li>
-<li><em>depth-max</em> and <em>depth-min</em> --- the minimum/maximum height of randomly generated trees (defaults to 2 and 1, respectively)</li>
-<li><em>repfunc</em> --- the reporting function, which gets passed the best-seen individual (a hash with keys :tree and :fitness; see sample.clj for an example)</li>
-<li><em>reprate</em> --- the reporting rate; every nth cycle repfunc will be called</li>
-<li><em>mutation-rate</em> --- a number between 0 and 1 that determines the chance of mutation (defaults to 0.05)</li>
-<li><em>tournament-size</em> --- the number of individuals in each tournament selection (defaults to 5)</li>
-<li><em>tests</em> --- test inputs for your function, in the form of a sequence of vectors (each should match the length of <em>symbols</em> above)</li>
-<li><em>actual</em> --- the correct outputs for each of the <em>tests</em> elements</li>
-</ul>
+<p>These are the basic data structures that will be used in the application. Most
+of them should be self-explanatory, except TreeAttributes -- it holds any
+information needed to manipulate trees. A minor complication is the inclusion
+of tournament-size, since it acts on forests rather than trees, so it picks
+a tree from the forest to read tournament-size from.</p>
+</td><td class="codes"></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">(defrecord PrimitiveProcedure
+    [op arity])</pre></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">(defrecord TreeAttributes
+    [max-height symbols funcs term depth mutation-rate tournament-size])</pre></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">(defrecord TestPairs
+    [tests actual])</pre></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">(defrecord Reporting
+    [repfunc reprate])</pre></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">(defrecord Tree
+    [code attributes error])</pre></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">(defrecord Forest
+    [trees best])</pre></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">(defrecord Population
+    [forests best])</pre></td></tr><tr><td class="docs"><p>The main entry function takes a hash as a parameter. Before using it I merge it
+with a hash of default values.</p>
 </td><td class="codes"></td></tr><tr><td class="docs"><p>Take passed-in parameters and merge them with default parameters to construct
    the options hash that gets passed to the other functions.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn build-options
-  [o] (let [defaults {:term-max 1 :term-min -1 :depth-max 2 :depth-min 1
-                      :mutation-rate 0.05 :tournament-size 5}]
-        (merge defaults o)))</pre></td></tr><tr><td class="docs"><p>Many of the functions below use the options hash built by the build-options
-function. In most cases this is invisible, since run-gp constructs the
-options hash and runs the parallel-generations function, but for purposes
-of testing or modification/extension you can do this manually with build-options.</p>
-</td><td class="codes"></td></tr><tr><td class="docs"><p>Return a random terminal for the source tree. Takes the options hash as parameter.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn terminal
-  [o] (if (flip 0.5) (rand-nth (:symbols o))
-          (+ (:term-min o) (rand-int (- (:term-max o) (:term-min o))))))</pre></td></tr><tr><td class="docs"><h3>Tree manipulation</h3>
+  [o]
+  (let [defaults {:depth [1 2] :mutation-rate 0.1 :tournament-size 3
+                  :leaves [] :term [] :max-height 25}]
+    (merge defaults o)))</pre></td></tr><tr><td class="docs"><p>Any data needed to manipulate trees is stored in a TreeAttributes record. One
+search will share a single TreeAttribute record. </p>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>Take the options hash and make a TreeAttributes record.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn make-attributes
+  [o] (map-&gt;TreeAttributes (select-keys o [:max-height :symbols :funcs :term :depth
+                                           :mutation-rate :tournament-size])))</pre></td></tr><tr><td class="docs"><h3>Tree manipulation</h3>
 
-<p>My method of random tree generation is a combination of the "grow" and "fill"
+<p>The following section of code deals with building and manipulating the trees of code,
+which are actually quoted lists of Lisp code. The goal is to make sure valid code is
+generated to start with, and that all operations (crossover, mutation, etc) output
+valid code. If those two conditions are true, the algorithm will produce valid code at
+the end of each iteration (generation).</p>
+
+<p>To create the leaves of the tree I either use number literals (between a specified range),
+parameter symbols (which correspond to the input of the function), or "literal-terms," which
+can be any quoted Lisp code, from constants like Math/PI to side-effect code like file I/O.</p>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>Return a random terminal for the source tree. Takes a TreeAttribute record as a parameter.
+   Terminals are pulled from :term (for number literals), :symbols (for parameters), and
+   :literal-terms (for everything else) -- each read from the TreeAttribute record.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn terminal
+  [attr]
+  (let [term (:term attr)
+        literal-terms (:leaves attr)
+        symbols (:symbols attr)]
+    (if (and (not (empty? term)) (flip 0.5))
+      (+ (first term) (rand-int (- (second term) (first term))))
+      (rand-nth (concat literal-terms symbols)))))</pre></td></tr><tr><td class="docs"><p>My method of random tree generation is a combination of the "grow" and "fill"
 methods of tree building, similar to Koza's "ramped half-and-half" method.</p>
-</td><td class="codes"></td></tr><tr><td class="docs"><p>Build a random tree of lisp code. The tree will be filled up to the minimum depth,
+
+<p>Here is the first instance of a pattern I use occasionally: if I end a function with
+"-code" it means it operates on the list of code itself, rather than a Tree record.</p>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>Designed to be called by build-tree.
+   Build a random tree of lisp code. The tree will be filled up to the minimum depth,
    then grown to the maximum depth. Minimum and maximum depth are specified in the
-   options, but can optionally be passed explicitly.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn build-tree
-  ([o] (build-tree o (:depth-max o) (:depth-min o)))
-  ([o depth-max depth-min]
+   attribute record, but can optionally be passed explicitly.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn build-tree-code
+  ([attr]
+     (build-tree-code attr (second (:depth attr)) (first (:depth attr))))
+  ([attr depth-max depth-min]
      (if (or (zero? depth-max)
              (and (&lt;= depth-min 0) (flip 0.5)))
-       (terminal o) ;; insert a random terminal
-       (let [f (rand-nth (:funcs o))]
+       (terminal attr) ;; insert a random terminal
+       (let [f (rand-nth (:funcs attr))]
          (cons (:op f) ;; cons the operation onto a sublist matching the arity of f
-               (repeatedly (:arity f) #(build-tree o (- depth-max 1) (- depth-min 1))))))))</pre></td></tr><tr><td class="docs"><p>First we define a function for creating a collection of trees, then one for
+               (repeatedly (:arity f) #(build-tree-code
+                                        attr (- depth-max 1) (- depth-min 1))))))))</pre></td></tr><tr><td class="docs"><p>Build a Tree record from a TreeAttribute record. Optionally takes depth arguments.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn build-tree
+  ([attr]
+     (Tree. (build-tree-code attr) attr Integer/MAX_VALUE))
+  ([attr depth-max depth-min]
+     (Tree. (build-tree-code attr depth-max depth-min) attr Integer/MAX_VALUE)))</pre></td></tr><tr><td class="docs"><p>First we define a function for creating a collection of trees, then one for
 creating a collection of a collection of trees.</p>
-</td><td class="codes"></td></tr><tr><td class="docs"><p>Returns a sequence of trees. A bunch of trees is a forest, right? Get it?</p>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>Returns a Forest record. A bunch of trees is a forest, right? Get it?</p>
 </td><td class="codes"><pre class="brush: clojure">(defn build-forest
-  [o] (repeatedly (:forest-size o) #(build-tree o)))</pre></td></tr><tr><td class="docs"><p>Call build-forest repeatedly to fill a population. A population is a collection
+  [attr forest-size]
+  (let [trees (repeatedly forest-size #(build-tree attr))
+        best (rand-nth trees)]
+    (Forest. trees best)))</pre></td></tr><tr><td class="docs"><p>Call build-forest repeatedly to fill a population. A population is a collection
    of forests.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn build-population
-  [o] (repeatedly (:pop-size o) #(build-forest o)))</pre></td></tr><tr><td class="docs"><p>Find the maximum height of a tree.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn max-tree-height
-  [tree] (if (not (seq? tree)) 0 (+ 1 (reduce max (map max-tree-height tree)))))</pre></td></tr><tr><td class="docs"><p><strong>rand-subtree</strong> and <strong>replace-subtree</strong> are two of the most important functions.
-They define how the trees are modified.</p>
+  [attr pop-size forest-size]
+  (let [population (repeatedly pop-size #(build-forest attr forest-size))
+        best (-&gt; population rand-nth :trees rand-nth)]
+    (Population. population best)))</pre></td></tr><tr><td class="docs"><p>Find the maximum height of a code tree.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn max-tree-height-code
+  [code]
+  (if (not (seq? code)) 0
+      (+ 1 (reduce max
+                   (map max-tree-height-code code)))))</pre></td></tr><tr><td class="docs"><p><strong>rand-subtree-code</strong> and <strong>replace-subtree-code</strong> are two of the most important functions.
+They define how the lists of code are modified.</p>
 </td><td class="codes"></td></tr><tr><td class="docs"><p>The basic idea for how I implemented both of them is that recursion can be
 used to reduce the problem at each step: given a tree (or a subtree, all of
 which have the same form), recurse on a random subtree, along with a
@@ -3164,42 +3198,81 @@ reduced value of n. The base case is when n is zero or the function hits a leaf.
 
 <p>Additionally, <strong>replace-subtree</strong> uses concat to reconstruct
 the tree on its way back up the stack.</p>
+
+<p>Both functions expect lists, not Tree records.</p>
 </td><td class="codes"></td></tr><tr><td class="docs"><p>Return a random subtree of a list.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn rand-subtree
-  ([tree] (rand-subtree tree (rand-int (+ 1 (max-tree-height tree)))))
-  ([tree n] (if (or (zero? n) (not (seq? tree))) tree
-                (recur (rand-nth (rest tree))
-                       (rand-int n)))))</pre></td></tr><tr><td class="docs"><p>Replace a random subtree with a given subtree.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn replace-subtree
-  ([tree sub] (replace-subtree tree sub (rand-int (+ 1 (max-tree-height tree)))))
-  ([tree sub n] (if (or (zero? n) (not (seq? tree))) sub
-                    (let [r (+ 1 (rand-int (count (rest tree))))] 
-                      (concat (take r tree)
-                              (list (replace-subtree
-                                     (nth tree r) sub
-                                     (rand-int n)))
-                              (nthrest tree (+ r 1)))))))</pre></td></tr><tr><td class="docs"><h3>Mutation, crossover, and selection</h3>
+</td><td class="codes"><pre class="brush: clojure">(defn rand-subtree-code
+  ([code]
+     (rand-subtree-code code (rand-int (+ 1 (max-tree-height-code code)))))
+  ([code n]
+     (if (or (zero? n) (not (seq? code))) code
+         (recur (rand-nth (rest code))
+                (rand-int n)))))</pre></td></tr><tr><td class="docs"><p>Replace a random subtree with a given subtree in a list.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn replace-subtree-code
+  ([code sub]
+     (replace-subtree-code code sub (rand-int (+ 1 (max-tree-height-code code)))))
+  ([code sub n]
+     (if (or (zero? n) (not (seq? code))) sub
+         (let [r (+ 1 (rand-int (count (rest code))))] 
+           (concat (take r code)
+                   (list (replace-subtree-code
+                          (nth code r) sub
+                          (rand-int n)))
+                   (nthrest code (+ r 1)))))))</pre></td></tr><tr><td class="docs"><p>One minor problem with the method of evaluation I'm using is that there's a limit to
+how big the generated functions can be. Since they're compiled into JVM bytecode,
+they are subject to the JVM's limit on how big methods can be. This is a huge limit
+but because it technically exists I make a maximum height mandatory for generated
+trees.</p>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>Prevent trees from growing too big by doing subtree lifting when they hit the cap.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn truncate
+  [tree]
+  (if (and (-&gt; tree :attributes :max-height)
+           (&lt; (max-tree-height-code (:code tree))
+              (-&gt; tree :attributes :max-height)))
+    (assoc tree :code (rand-subtree-code (:code tree)))
+    tree))</pre></td></tr><tr><td class="docs"><h3>Mutation, crossover, and selection</h3>
 
 <p>With rand-subtree and replace-subtree out of the way, the rest of the
 single-generation pass is pretty simple. Mutation and crossover both
 can easily be written in terms of rand-subtree and replace-subtree.</p>
 
-<p><strong>Mutation</strong> takes a tree and (occasionally) randomly changes part of it.
+<p><strong>Mutation</strong> takes a Tree record and randomly mutates a part of it.
 The idea, like the rest of the fundamental aspects of genetic algorithms,
 is taken from nature; when DNA is copied, there is a slight chance of
 "mistakes" being introduced in the copy. This can lead to beneficial
 changes and increases genetic diversity.</p>
-</td><td class="codes"></td></tr><tr><td class="docs"><p>Mutate a tree by substituting in a randomly-built tree of code.</p>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>Mutate a tree by substituting in a randomly-built tree of code. This function
+   also calls truncate. There are three types of mutation supported: replacing a
+   random subtree with a new random tree, replacing a random subtree with a
+   random terminal, and lifting a random subtree to the root.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn mutate
-  [o tree] (if (flip (:mutation-rate o))
-             (replace-subtree tree (build-tree o)) tree))</pre></td></tr><tr><td class="docs"><p><strong>Crossover</strong> is the process of combining two parents to make a child.
+  [tree]
+  (truncate (if (flip (-&gt; tree :attributes :mutation-rate))
+              (if (flip 0.5)
+                (if (or (flip 0.5)
+                        (&lt; (max-tree-height-code (:code tree))
+                           (-&gt; tree :attributes :max-height)))
+                  ;; assoc the code into the Tree record
+                  (assoc tree :code (replace-subtree-code
+                                     (:code tree) (build-tree-code (:attributes tree))))
+                  (assoc tree :code (replace-subtree-code
+                                     (:code tree) (terminal (:attributes tree)))))
+                (assoc tree :code (rand-subtree-code (:code tree)))) ;; subtree lifting
+              tree)))</pre></td></tr><tr><td class="docs"><p>Apply mutate to all trees in a Forest record</p>
+</td><td class="codes"><pre class="brush: clojure">(defn mutate-forest
+  [forest]
+  (assoc forest :trees (map mutate (:trees forest))))</pre></td></tr><tr><td class="docs"><p><strong>Crossover</strong> is the process of combining two parents to make a child.
 It involves copying the genetic material (in this case, lisp code) from
 the two parents, combining them, and returning the result of the combination.</p>
 </td><td class="codes"></td></tr><tr><td class="docs"><p>The crossover function is simple to define in terms of replace-subtree
    and rand-subtree. Basically, crossing over two trees involves selecting a
    random subtree from one tree, and placing it randomly in the other tree.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn crossover
-  [tree1 tree2] (replace-subtree tree1 (rand-subtree tree2)))</pre></td></tr><tr><td class="docs"><p><strong>Selection</strong> is the process in which more fit individuals are "selected," or
+  [tree1 tree2]
+  (assoc tree1 :code
+         (replace-subtree-code
+          (:code tree1)
+          (rand-subtree-code (:code tree2)))))</pre></td></tr><tr><td class="docs"><p><strong>Selection</strong> is the process in which more fit individuals are "selected," or
 more likely to breed (be involved in a crossover), while less fit individuals
 are less likely to breed.</p>
 
@@ -3209,38 +3282,59 @@ individual trees a grade, which is the sum of the error. Lower grades are
 better. Then, in the selection phase, individuals with lower error are more
 likely to be selected for crossover, and thus pass on their genetic
 material to the next generation.</p>
-</td><td class="codes"></td></tr><tr><td class="docs"><p>Compares the output of the individual tree with the test data to calculate error.</p>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>Compares the output of the individual tree with the test data to calculate error.
+   This is where the generated trees are compiled and executed.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn find-error
-  [o tree]
-  (let [func (eval (list 'fn (:symbols o) tree))]
-    (reduce + (map off-by (map (fn [arg] (apply func arg)) (:tests o)) (:actual o)))))</pre></td></tr><tr><td class="docs"><p>Runs find-error on every tree, and returns a map with keys
-   :tree and :fitness in place of each tree. It needs the options hash because
-   find-error needs to extract symbols, tests and actual.</p>
+  [tree fit]
+  (let [f-symb (list 'fn ;; format the quoted list to be eval'd
+                      (-&gt; tree :attributes :symbols)
+                      (:code tree))
+        f (eval f-symb)] ;; compile the generated function
+    (reduce + (map (fn [x y] (if (&gt; x y) (- x y) (- y x)))
+                   (map #(apply f %) (:tests fit))
+                   (:actual fit)))))</pre></td></tr><tr><td class="docs"><p>Calls find-error, takes a Tree record.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn tree-error
+  [tree fit]
+  (assoc tree :error (find-error tree fit)))</pre></td></tr><tr><td class="docs"><p>Runs tree-error on every tree in a forest, assoc'ing the :error attribute in the record.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn forest-error
-  [o forest]
-  (map (fn tree-error [tree] {:tree tree :fitness (find-error o tree)}) forest))</pre></td></tr><tr><td class="docs"><p>A few of the following functions refer to <strong>ferror</strong>, a sequence returned
-by forest-error. It's a sequence of maps, each with keys for :tree and
-:fitness. The keys correspond to the source tree and the fitness score,
-respectively. It's simple enough to sort the sequence by fitness, for
-example.</p>
-</td><td class="codes"></td></tr><tr><td class="docs"><p>Returns the best tree, given ferror.</p>
+  [forest fit]
+  (assoc forest :trees (map #(tree-error % fit) (:trees forest))))</pre></td></tr><tr><td class="docs"><p>Returns the best tree in a forest, according to their error.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn get-best
-  [ferror] (first (sort-by :fitness ferror)))</pre></td></tr><tr><td class="docs"><p>Select out a few individuals (tournament size is in o) and run a
+  [forest]
+  (first (sort-by :error (:trees forest))))</pre></td></tr><tr><td class="docs"><p>Designed to be called by tournament-select.
+   Select out a few individual trees from the forest and run a
    tournament amongst them. The two most fit in the tournament are crossed over
    to produce a child. Larger tournaments lead to more selective pressure.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn tournament-select-error
-  [o ferror]
-  (let [selected (sort-by :fitness (repeatedly (:tournament-size o) #(rand-nth ferror)))]
-    (crossover (:tree (first selected)) (:tree (second selected)))))</pre></td></tr><tr><td class="docs"><p>Run tournament-select-error enough times to re-populate the forest. The options
-   hash is passed so tournament-select-error can extract tournament-size.</p>
+  [forest]
+  (let [attr (-&gt; forest :trees first :attributes) ;; get attributes from some tree
+        tournament (repeatedly (:tournament-size attr) #(rand-nth (:trees forest)))
+        selected (sort-by :error tournament)]
+    (crossover (first selected) (second selected))))</pre></td></tr><tr><td class="docs"><p>Run tournament-select-error enough times to re-populate the forest.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn tournament-select
-  [o ferror] (repeatedly (count ferror) #(tournament-select-error o ferror)))</pre></td></tr><tr><td class="docs"><h3>Putting it together</h3>
+  [forest]
+  (assoc forest :trees
+         (repeatedly (count forest)
+                     #(tournament-select-error forest))))</pre></td></tr><tr><td class="docs"><h3>Putting it together</h3>
 
-<p>This takes care of all the steps necessary to complete one generation of the algorithm.
+<p>The next thing to do is combine the operations. One generation consists
+of applying the mutation and selection phases on a forest of trees.</p>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>Update the :best attribute of the Forest record.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn forest-best-update
+  [forest]
+  (let [current-best (get-best forest)
+        old-best (-&gt; forest :best)]
+    (if (or (nil? old-best)
+            (&lt; (:error current-best) (:error old-best)))
+      (assoc forest :best current-best)
+      forest)))</pre></td></tr><tr><td class="docs"><p>Take the best tree so far and put it in the current forest.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn elite
+  [forest]
+  (assoc forest :trees (conj (rest (:trees forest)) (:best forest))))</pre></td></tr><tr><td class="docs"><p>This takes care of all the steps necessary to complete one generation of the algorithm.
 The process can be extended to multiple generations with a simple tail recursive
 function.</p>
 
-<p>There are some extra considerations here. The function should:</p>
+<p>There are some extra considerations here. The generation function should:</p>
 
 <ul>
 <li>stop when a perfect individual has been found, meaning fitness is zero</li>
@@ -3252,35 +3346,44 @@ can be passed back in to start the search at the same place</li>
    seen so far in the forest is saved and passed on as the last parameter (it is nil
    when no best individual has been found).</p>
 </td><td class="codes"><pre class="brush: clojure">(defn generations
-  [o n forest best]
+  [forest fit n]
   (if (or (zero? n)
-          (and (not (nil? best))
-               (zero? (:fitness best)))) ;; stop early when fitness is zero
-    {:forest forest :best best} ;; return forest and current best
-    (let [ferror (forest-error o forest)
-          cur-best (get-best ferror)
-          new-best (if (nil? best) cur-best
-                       (if (&gt; (:fitness cur-best) (:fitness best)) best cur-best))
-          new-forest (map (fn [tree] (mutate o tree))
-                          (tournament-select o ferror))]
-      ;; the recursive call for the next generation
-      (recur o
-             (- n 1)
-             (if (nil? best) new-forest
-                 (conj (rest new-forest)
-                       (:tree new-best)))
-             new-best))))</pre></td></tr><tr><td class="docs"><h3>Populations</h3>
+          (zero? (-&gt; forest :best :error)))
+    forest ;; return current forest
+    (let [forest (-&gt; forest (forest-error ,,, fit) ;; calculate error before
+                     tournament-select mutate-forest
+                     (forest-error ,,, fit) forest-best-update)] ;; and after
+      ;; the tail-recursive call for the next generation
+      (recur forest fit (- n 1)))))</pre></td></tr><tr><td class="docs"><h3>Populations</h3>
 
 <p>After building a single tree, then a single generation, then multiple generations,
 it's one more step to parallel generations. Above there's a function for defining
 a "population" of forests. We can evolve the forests in the population individually
 and cross over between them.</p>
-</td><td class="codes"></td></tr><tr><td class="docs"><p>Individual trees migrate between forests.</p>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>Migrate individual trees between populations by making a list of individuals pulled
+   randomly and merging it back into the population in a different order.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn population-crossover
   [population]
-  (let [cross (map rand-nth population)]
-    (map (fn [[forest selected]] (conj (rest (shuffle forest)) selected))
-         (zipmap population cross))))</pre></td></tr><tr><td class="docs"><p><strong>parallel-generations</strong> is the function that runs the show. It runs the
+  (let [cross-list (map #(-&gt; % :trees rand-nth) (shuffle (-&gt; population :forests)))]
+    (assoc population :forests
+           (map (fn [forest tree]
+                  (if (not (in? (:trees forest) tree))
+                    (assoc forest :trees (conj (-&gt; forest :trees shuffle rest) tree))
+                    forest))
+                (:forests population) cross-list))))</pre></td></tr><tr><td class="docs"><p>Update the :forest attribute of a Population by calling generation and
+   calling population-crossover</p>
+</td><td class="codes"><pre class="brush: clojure">(defn population-forest-update
+  [population fit gens]
+  (population-crossover (assoc population :forests
+                               (map #(generations % fit gens)
+                                    (:forests population)))))</pre></td></tr><tr><td class="docs"><p>Update the :best attribute of a Population by finding the lowest error
+   among the :best attributes of each forest.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn population-best-update
+  [population]
+  (assoc population :best
+         (first (sort-by :error
+                         (map :best
+                              (:forests population))))))</pre></td></tr><tr><td class="docs"><p><strong>parallel-generations</strong> is the function that runs the show. It runs the
 generations function defined above on each of the forests (and does so in
 parallel, thanks to Clojure's convenient parallelism features).</p>
 </td><td class="codes"></td></tr><tr><td class="docs"><p>Spawn threads to run each of the forests for a specified amount of time, and
@@ -3290,24 +3393,54 @@ parallel, thanks to Clojure's convenient parallelism features).</p>
    you can simply pass in the population explicitly and this function will start
    where it left off.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn parallel-generations
-  ([o] (parallel-generations o (:cycles o) (:gens o) (build-population o) nil))
-  ([o cycles gens population best]
-     (if (or (zero? cycles) (and (not (nil? best)) (zero? (:fitness best))))
-       {:population population :best best} ;; done
-       (do (when (and (not (nil? best)) (zero? (mod cycles (:reprate o))))
-             ((:repfunc o) best)) ;; report
-           ;; similar pattern to the generations function
-           (let [p (pmap (fn [forest] (generations o gens forest best)) population)
-                 cur-pop (population-crossover (map :forest p))
-                 all-bests (map :best p)
-                 cur-best (first (sort-by :fitness all-bests))
-                 new-best (if (nil? best) cur-best
-                              (if (&gt; (:fitness cur-best) (:fitness best))
-                                best cur-best))]
-             (recur o (- cycles 1) gens cur-pop new-best))))))</pre></td></tr><tr><td class="docs"><p>Create a population of source trees and evolve them to fit the test function
+  ([cycles gens pop-size forest-size attr report fit]
+     ;; no population generated yet
+     (parallel-generations cycles gens (build-population attr pop-size forest-size) report fit))
+  ([cycles gens population report fit]
+     (if (or (zero? cycles)
+             (zero? (-&gt; population :best :error)))
+       population
+       (do (when (and (not (nil? (:best population)))
+                      (zero? (mod cycles (:reprate report))))
+             (when (not= (-&gt; population :best :error) Integer/MAX_VALUE)
+               ((:repfunc report) (:best population)))) ;; report
+           (let [population (-&gt; population
+                                (population-forest-update ,,, fit gens)
+                                population-best-update)]
+             (recur (- cycles 1) gens population report fit))))))</pre></td></tr><tr><td class="docs"><h3>Options</h3>
+
+<p>Finally, run-gp exposes a simple API, in the form of a single map parameter. The following options keywords are accepted:</p>
+
+<ul>
+<li><em>:pop-size</em> --- the number of forests, and the number of top-level threads to run</li>
+<li><em>:forest-size</em> --- the number of trees in each forest</li>
+<li><em>:max-height</em> --- the maximum height of the tree (larger trees will be shrunk)</li>
+<li><em>:symbols</em> --- a sequence of symbols to be placed in the generated code as terminals</li>
+<li><em>:funcs</em> --- a sequence (following a certain format; see core.clj or sample.clj) describing the functions to be used in the generated code</li>
+<li><em>:term</em> --- a vector representing the range of number terminals to be used in generated code (empty for no number terminals)</li>
+<li><em>:depth</em> --- a vector representing the minimum and maximum height of randomly generated trees (defaults to [1 2])</li>
+<li>*:report
+<ul><li><em>:reprate</em> --- the reporting function, which gets passed the best-seen individual (a hash with keys :tree and :fitness; see sample.clj for an example)</li>
+<li><em>:reprate</em> --- the reporting rate; every nth cycle repfunc will be called</li></ul></li>
+<li><em>:mutation-rate</em> --- a number between 0 and 1 that determines the chance of mutation (defaults to 0.05)</li>
+<li><em>:tournament-size</em> --- the number of individuals in each tournament selection (defaults to 5)</li>
+<li><em>:fit</em>
+<ul><li><em>:tests</em> --- test inputs for your function, in the form of a sequence of vectors (each should match the length of <em>symbols</em> above)</li>
+<li><em>:actual</em> --- the correct outputs for each of the <em>tests</em> elements</li></ul></li>
+</ul>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>Create a population of source trees and evolve them to fit the test function
    and data passed in. This is probably the function you'll want to call.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn run-gp
-  [o] (parallel-generations (build-options o)))</pre></td></tr><tr><td class="docs"><p>And that's it! For the core of the library, anyway. </p>
+  [args]
+  (let [options (build-options args)]
+    (parallel-generations
+     (:cycles options)
+     (:gens options)
+     (:pop-size options)
+     (:forest-size options)
+     (make-attributes options)
+     (:report options)
+     (:fit options))))</pre></td></tr><tr><td class="docs"><p>And that's it! For the core of the library, anyway. </p>
 </td><td class="codes"></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#fungp.sample" name="fungp.sample"><h1 class="project-name">fungp.sample</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs"><h2>Sample use</h2>
 
 <p>This demonstrates a sample use of <strong>fungp</strong>.</p>
@@ -3345,7 +3478,8 @@ Lowest error: 0.0
 </td><td class="codes"></td></tr><tr><td class="docs">
 </td><td class="codes"><pre class="brush: clojure">(ns fungp.sample
   (:use fungp.core)
-  (:use fungp.util))</pre></td></tr><tr><td class="docs"><p>Safe versions of inverse and divide to avoid divide-by-zero errors.</p>
+  (:use fungp.util)
+  (:use clojure.pprint))</pre></td></tr><tr><td class="docs"><p>Safe versions of inverse and divide to avoid divide-by-zero errors.</p>
 </td><td class="codes"></td></tr><tr><td class="docs">
 </td><td class="codes"><pre class="brush: clojure">(defn inv [x]
   (if (zero? x) 0
@@ -3357,29 +3491,38 @@ be wrapped in clojure functions.</p>
 </td><td class="codes"></td></tr><tr><td class="docs">
 </td><td class="codes"><pre class="brush: clojure">(defn sin [x] (Math/sin x))
 (defn cos [x] (Math/cos x))
-(defn tan [x] (Math/tan x))</pre></td></tr><tr><td class="docs"><p>Functions are defined in a vector of maps like this.</p>
-</td><td class="codes"><pre class="brush: clojure">(def funcs [{:op * :arity 2 :name '*}
-            {:op + :arity 2 :name '+} 
-            {:op - :arity 2 :name '-}
-          ;;{:op sdiv :arity 2 :name 'sdiv}
-          ;;{:op inc :arity 1 :name 'inc} 
-          ;;{:op dec :arity 1 :name 'dec}
-          ;;{:op inv :arity 1 :name 'inv}
-            {:op sin :arity 1 :name 'fungp.sample/sin}
-            {:op cos :arity 1 :name 'fungp.sample/cos}
-            {:op tan :arity 1 :name 'fungp.sample/tan}])</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(def symbols ['a])</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(def symbtest '(fn [a] (+ 1 (+ (sin a) a))))</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(def testfit (eval symbtest))</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(def rtests (range -60 60))</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(def testdata (map vector rtests))</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(def actual (map testfit rtests))</pre></td></tr><tr><td class="docs"><p>Reporting function. This one is designed to only report when invoked in
+(defn tan [x] (Math/tan x))</pre></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">(defn ifeq [a b c d] (if (= a b) c d))
+(defn ifnoteq [a b c d] (if (not (= a b)) c d))
+(defn gte [a b c d] (if (&gt;= a b) c d))</pre></td></tr><tr><td class="docs"><p>Functions are defined in a vector of maps like this.</p>
+</td><td class="codes"><pre class="brush: clojure">(def funcs [#fungp.core.PrimitiveProcedure[* 2]
+            #fungp.core.PrimitiveProcedure[+ 2] 
+            #fungp.core.PrimitiveProcedure[- 2]
+            #fungp.core.PrimitiveProcedure[sdiv 2]
+           ;#fungp.core.PrimitiveProcedure[inc 1] 
+           ;#fungp.core.PrimitiveProcedure[dec 1]
+            #fungp.core.PrimitiveProcedure[sin 1]
+            #fungp.core.PrimitiveProcedure[cos 1]
+           ;{:op inv :arity 1 :name 'inv}
+           ;{:op abs :arity 1 :name 'abs}
+           ;#fungp.core.PrimitiveProcedure[ifeq 4]
+           ;{:op ifnoteq :arity 4 :name 'ifnoteq}
+           ;{:op gte :arity 4 :name 'gte}
+            ])</pre></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">(def symbols '[a])</pre></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">(def lits ['Math/PI 'Math/E])</pre></td></tr><tr><td class="docs"><p>(def symbtest '(fn [a] (/ Math/E (* Math/PI (+ a (inv (sin a)))))))</p>
+</td><td class="codes"><pre class="brush: clojure">(def symbtest '(fn [a] (sdiv (cos a) (sin a))))</pre></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">(def testfit (eval symbtest))</pre></td></tr><tr><td class="docs"><p>(def rtests (range -100 100))</p>
+</td><td class="codes"><pre class="brush: clojure">(def rtests [-0.99 -0.9 -0.5 -0.3 -0.1 -0.01 0 0.01 0.1 0.3 0.5 0.9 0.99])
+(def testdata (map vector rtests))
+(def actual (map testfit rtests))</pre></td></tr><tr><td class="docs"><p>Reporting function. This one is designed to only report when invoked in
    parallel-population.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn repfunc
-  [{tree :tree fitness :fitness}]
+  [{code :code error :error}]
   (flush)
-  (print &quot;Code:\t&quot;)(print (list 'fn symbols (conv-code tree funcs)))(print &quot;\n&quot;)
-  (print &quot;Error:\t&quot;)(print fitness)(print &quot;\n\n&quot;))</pre></td></tr><tr><td class="docs"><p>A simple test function for fungp. It attempts to match a function by supplying
+  (print &quot;Code:\t&quot;)(print code)(print &quot;\n&quot;)
+  (print &quot;Error:\t&quot;)(print error)(print &quot;\n\n&quot;)
+  (flush))</pre></td></tr><tr><td class="docs"><p>A simple test function for fungp. It attempts to match a function by supplying
    training cases in the form of inputs and outputs generated from the function
    to be matched.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn test-gp
@@ -3387,38 +3530,35 @@ be wrapped in clojure functions.</p>
   (println &quot;fungp :: Functional Genetic Programming in Clojure&quot;)
   (println &quot;Mike Vollmer, 2012&quot;)
   (println &quot;==================================================\n&quot;)
-  (println &quot;Attempting to match this function:&quot;)
-  (print symbtest)
+  ;;(println &quot;Attempting to match this function:&quot;)
+  ;;(print symbtest)
+  (pprint (zipmap rtests actual))
   (println &quot;\nLower numbers are better. Results shown are sum of error. Best so far:\n&quot;)
   (def results (run-gp {:gens iter :cycles cycle
-                        :pop-size 6 :forest-size 15
+                        :max-height 15
+                        :pop-size 10 :forest-size 500
                         :symbols symbols :funcs funcs
-                        :repfunc repfunc  :reprate 1
-                        :mutation-rate 0.1 :tournament-size 3
-                        :actual actual :tests testdata}))
-  (shutdown-agents)
+                        :report {:repfunc repfunc  :reprate 5}
+                        :tournament-size 5
+                        :fit {:actual actual :tests testdata}}))
   (def best-result (:best results))
-  (def out-func (list 'fn symbols (conv-code (:tree best-result) funcs)))
   (println &quot;Done!&quot;)
-  (println out-func)
-  (print &quot;Lowest error: &quot;)(print (:fitness best-result))(print &quot;\n&quot;)
-  (eval out-func))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#fungp.sample-main" name="fungp.sample-main"><h1 class="project-name">fungp.sample-main</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(ns fungp.sample-main
-  (:use fungp.sample))</pre></td></tr><tr><td class="docs">
+  (print &quot;Lowest error: &quot;)(print (:error best-result))(print &quot;\n&quot;)
+  best-result)</pre></td></tr><tr><td class="docs">
 </td><td class="codes"><pre class="brush: clojure">(defn -main []
   (test-gp 160 4))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#fungp.util" name="fungp.util"><h1 class="project-name">fungp.util</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(ns fungp.util
-    (:require [clojure.math [numeric-tower :as math]]))</pre></td></tr><tr><td class="docs"><p>Convenience function. Generates true with a probablilty of the
+</td><td class="codes"><pre class="brush: clojure">(ns fungp.util)</pre></td></tr><tr><td class="docs"><p>Convenience function. Generates true with a probablilty of the
    given parameter (a number between 0 and 1)</p>
 </td><td class="codes"><pre class="brush: clojure">(defn flip
   [chance] (&lt; (rand) chance))</pre></td></tr><tr><td class="docs"><p>Find the entry in the function sequence for a given operator.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn find-op
-  [op funcs] (first (filter (fn [x] (= (:op x) op)) funcs)))</pre></td></tr><tr><td class="docs"><p>Take a tree and return a list of symbols based on the :name symbols.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn conv-code
-  [tree funcs]
-  (if (not (seq? tree))
-    (if (fn? tree) (:name (find-op tree funcs)) tree)
-    (map (fn [t] (conv-code t funcs)) tree)))</pre></td></tr><tr><td class="docs"><p>Calculate error.</p>
+  [op funcs] (first (filter (fn [x] (= (:op x) op)) funcs)))</pre></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">(defn abs [x] (if (&lt; x 0) (* -1 x) x))</pre></td></tr><tr><td class="docs"><p>Calculate error.</p>
 </td><td class="codes"><pre class="brush: clojure">(defn off-by
-  [x y] (math/abs (- x y)))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr></table><div class="footer">Generated by <a href="https://github.com/fogus/marginalia">Marginalia</a>.&nbsp;&nbsp;Syntax highlighting provided by Alex Gorbatchev's <a href="http://alexgorbatchev.com/SyntaxHighlighter/">SyntaxHighlighter</a></div><script type="text/javascript">SyntaxHighlighter.defaults['gutter'] = false;
+  [x y] (abs (- x y)))</pre></td></tr><tr><td class="docs"><p>Apply a function to a part of a record.</p>
+</td><td class="codes"><pre class="brush: clojure">(defn on-key
+  [k r f] (assoc r k (f (k r))))</pre></td></tr><tr><td class="docs"><p>true if seq contains elm</p>
+</td><td class="codes"><pre class="brush: clojure">(defn in? 
+  [seq elm]  
+  (some #(= elm %) seq))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr></table><div class="footer">Generated by <a href="https://github.com/fogus/marginalia">Marginalia</a>.&nbsp;&nbsp;Syntax highlighting provided by Alex Gorbatchev's <a href="http://alexgorbatchev.com/SyntaxHighlighter/">SyntaxHighlighter</a></div><script type="text/javascript">SyntaxHighlighter.defaults['gutter'] = false;
        SyntaxHighlighter.all()</script></body></html>
