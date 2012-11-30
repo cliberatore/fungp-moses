@@ -49,5 +49,7 @@ License
 -------
 
 Project created by Mike Vollmer and released under GPL.
+
 MOSES additions were created by Chris Liberatore and are also released under GPL.
-See the LICENCE file distributed with this code.
+
+See the LICENSE file distributed with this code.
