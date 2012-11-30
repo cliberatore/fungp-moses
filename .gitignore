@@ -3,6 +3,9 @@
 /lib
 /classes
 /native
+/bin
+/target
+.settings/*
 /.lein-failures
 /checkouts
 /.lein-deps-sum
