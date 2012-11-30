@@ -38,7 +38,7 @@
    to a function, and the arity number is an integer representing how many arguments
    that function takes."
   '[[+ 2][- 2][* 2][fungp.util/abs 1]
-    [fungp.util/sdiv 2][inc 1][dec 1]])
+    [fungp.util/sdiv 2]])
 
 ;;; We also need to pick the terminals. In the above expression, a b and c were terminals.
 ;;; Terminals can be anything, but *fungp* separates them into two groups: numbers and

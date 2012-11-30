@@ -108,7 +108,10 @@
 (ns fungp.core
   "This is the namespace declaration. It is the start of the core of the library."
   (:use fungp.util)
+  (:use fungp.moses)
   (:use fungp.defined-branches))
+
+(def ^:dynamic ^boolean moses)
 
 ;;; ### Tree creation
 ;;;
@@ -422,7 +425,8 @@
                    (tournament-selection tournament-size computed-fitness)
                    (mutate-population mutation-probability mutation-depth terminals numbers functions)
                    (truncate-population max-depth)
-                   (elitism best-tree)))))))
+                   (elitism best-tree)
+                   (#(if (true? moses) (normalize-population %) % ))))))))
 
 ;;; ### Islands
 ;;;

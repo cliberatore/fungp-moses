@@ -1,7 +1,9 @@
 (defproject fungp "0.3.1"
   :description "Genetic programming in Clojure"
   :jvm-opts ["-XX:ReservedCodeCacheSize=128m" "-server"]
-  :dependencies [[org.clojure/clojure "1.3.0"]]
+  :dependencies [[org.clojure/clojure "1.3.0"]
+                 [org.clojure/core.match "0.2.0-alpha11"]
+                 [criterium "0.3.1"]]
   :aot [fungp.java-api]
   :url "http://gaia.ecs.csus.edu/~vollmerm/gp/"
   :license {:name "GNU General Public License v3"
