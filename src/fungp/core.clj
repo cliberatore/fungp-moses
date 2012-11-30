@@ -108,11 +108,10 @@
 (ns fungp.core
   "This is the namespace declaration. It is the start of the core of the library."
   (:use fungp.util)
-  (:use fungp.moses)
   (:use fungp.defined-branches))
 
-(def ^:dynamic ^boolean moses)
 
+(def ^:dynamic moses-normalize)
 ;;; ### Tree creation
 ;;;
 ;;; My method of random tree generation is a combination of the "grow" and "fill"
@@ -426,7 +425,9 @@
                    (mutate-population mutation-probability mutation-depth terminals numbers functions)
                    (truncate-population max-depth)
                    (elitism best-tree)
-                   (#(if (true? moses) (normalize-population %) % ))))))))
+                   (#(if (bound? #'moses-normalize) (moses-normalize %) %))
+                   ;(#(if (true? moses) (normalize-population %) % ))))))))
+                   ))))))
 
 ;;; ### Islands
 ;;;

@@ -1,4 +1,5 @@
-(ns fungp.moses)
+(ns fungp.moses
+  (:use fungp.core))
 
 ;normalizes a given tree. Input guaranteed to be either a terminal, number, or 
 (def ^:dynamic normalize-tree)
@@ -6,7 +7,7 @@
 (def ^:dynamic optimize-tree)
 
 (defn normalize-module-tree [module-tree]
-  { :pre [(bound? normalize-tree)] }
+  { :pre [(bound? #'normalize-tree)] }
 	(concat
 	  (take 2 module-tree)
     ;If the body function is actually a list, try to normalize it. It could just be a terminal or number
@@ -38,6 +39,10 @@
                  :adf-arity adf-arity :adf-count adf-count
                  :adl-count adl-count :adl-limit adl-limit
                  }]
-    (binding [moses true
-              fungp.moses/normalize moses-normalization
-              fungp.moses/optimize moses-optimization] (run-genetic-programming options))))
+   (binding [fungp.core/moses-normalize normalize-population
+             fungp.moses/normalize-tree moses-normalization
+             fungp.moses/optimize-tree moses-optimization]
+            (run-genetic-programming options))))
+  
+  
+  
