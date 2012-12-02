@@ -25,19 +25,19 @@
     ;(with-open [wrtr (writer (str "reports/twobox.fungp." now) :append true)]
       ;(.write wrtr (str iteration "," best-fit ",(let " (nth best-tree 1) " " (str (apply str (nth best-tree 2)))")\n"))))
 
-(def twobox-moses-options {:iterations 1 :migrations 1
+(def twobox-moses-options {:iterations 1 :migrations 51
                   :terminals sample-parameters :max-depth 10
                   :numbers number-literals :fitness sample-fitness
                   :functions sample-functions :report report-twobox-moses
-                  :num-islands 6 :population-size 2
+                  :num-islands 6 :population-size 700
                   :adf-count 2
                   :moses-normalize normalize-tree-regression})
 
-(def twobox-fungp-options {:iterations 1 :migrations 1
+(def twobox-fungp-options {:iterations 1 :migrations 51
                   :terminals sample-parameters :max-depth 10
                   :numbers number-literals :fitness sample-fitness
                   :functions sample-functions :report report-twobox-fungp
-                  :num-islands 6 :population-size 2
+                  :num-islands 6 :population-size 700
                   :adf-count 2
                   :moses-normalize normalize-tree-regression})
 
