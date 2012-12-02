@@ -7,24 +7,6 @@
   (:use clojure.pprint)
   (:use clojure.java.io))
 
-(defn test-moses-twobox [iters]
-  (with-open [wrtr (writer (str "reports/twobox.moses." now ".time") :append true)]
-    (loop [iters iters]
-      (let [runtime (time-body (rest (run-fungp-moses twobox-moses-options)))]
-         (.write wrtr (str runtime))
-      (if (> iters 0)
-        (recur (- iters 1))
-        runtime)))))
-
-(defn test-fungp-twobox [iters]
-  (with-open [wrtr (writer (str "reports/twobox.fungp." now ".time") :append true)]
-    (loop [iters iters]
-      (let [runtime (time-body (rest (run-genetic-programming twobox-fungp-options)))]
-         (.write wrtr (str runtime))
-      (if (> iters 0)
-        (recur (- iters 1))
-        runtime)))))
-
 (defn report-twobox-moses
   "Reporting function. Prints out the tree and its score"
   [iteration best-tree best-fit]
@@ -58,3 +40,21 @@
                   :num-islands 6 :population-size 2000
                   :adf-count 2
                   :moses-normalize normalize-tree-regression})
+
+(defn test-moses-twobox [iters]
+  (with-open [wrtr (writer (str "reports/twobox.moses." now ".time") :append true)]
+    (loop [iters iters]
+      (let [runtime (time-body (rest (run-fungp-moses twobox-moses-options)))]
+         (.write wrtr (str runtime))
+      (if (> iters 0)
+        (recur (- iters 1))
+        runtime)))))
+
+(defn test-fungp-twobox [iters]
+  (with-open [wrtr (writer (str "reports/twobox.fungp." now ".time") :append true)]
+    (loop [iters iters]
+      (let [runtime (time-body (rest (run-genetic-programming twobox-fungp-options)))]
+         (.write wrtr (str runtime))
+      (if (> iters 0)
+        (recur (- iters 1))
+        runtime)))))
