@@ -10,15 +10,15 @@
 
 (defn normalize-leaves-regression [[func & operands]]
   (println operands)
-  (if (and (>= 2 (count operands)) (= (nth operands 0) (nth operands 1)))
-    0.0
+;  (if (and (>= 2 (count operands)) (= - func) (= (nth operands 0) (nth operands 1)))
+;    0.0
 	  (match [func operands]
 	         [(:or '+ '-) (:or ([0.0 a] :seq) ([a 0.0] :seq) ([0 a] :seq) ([a 0] :seq))] a
 	         ['- (:or (['L0 'L0] :seq) (['L1 'L1] :seq) (['H0 'H0] :seq) (['H1 'H1] :seq) (['W0 'W0] :seq) (['W1 'W1] :seq))] 0.0
 	         ['* (:or ([0.0 a] :seq) ([a 0.0] :seq) ([0 a] :seq) ([a 0] :seq))] 0.0
 	         ['sdiv (:or ([0.0 a] :seq) ([a 0.0] :seq) ([0 a] :seq) ([a 0] :seq))] 0.0
 	         :else (concat (list func) operands)
-	         )))
+	         ))
 
 (defn normalize-tree-regression [[func & operands :as tree]]
   (if (nil? operands) func
