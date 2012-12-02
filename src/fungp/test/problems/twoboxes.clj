@@ -12,18 +12,18 @@
   [iteration best-tree best-fit]
 	  (pprint best-tree)
 	  (println (str "Iteration: " iteration "\tError:\t" best-fit "\n"))
-	  (flush)
-    (with-open [wrtr (writer (str "reports/twobox.moses." now) :append true)]
-      (.write wrtr (str iteration "," best-fit ",(let " (nth best-tree 1) " " (str (apply str (nth best-tree 2)))")\n"))))
+	  (flush))
+    ;(with-open [wrtr (writer (str "reports/twobox.moses." now) :append true)]
+      ;(.write wrtr (str iteration "," best-fit ",(let " (nth best-tree 1) " " (str (apply str (nth best-tree 2)))")\n"))))
 
 (defn report-twobox-fungp
   "Reporting function. Prints out the tree and its score"
   [iteration best-tree best-fit]
 	  (pprint best-tree)
 	  (println (str "Iteration: " iteration "\tError:\t" best-fit "\n"))
-	  (flush)
-    (with-open [wrtr (writer (str "reports/twobox.fungp." now) :append true)]
-      (.write wrtr (str iteration "," best-fit ",(let " (nth best-tree 1) " " (str (apply str (nth best-tree 2)))")\n"))))
+	  (flush))
+    ;(with-open [wrtr (writer (str "reports/twobox.fungp." now) :append true)]
+      ;(.write wrtr (str iteration "," best-fit ",(let " (nth best-tree 1) " " (str (apply str (nth best-tree 2)))")\n"))))
 
 (def twobox-moses-options {:iterations 1 :migrations 51
                   :terminals sample-parameters :max-depth 10
