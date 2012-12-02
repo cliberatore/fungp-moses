@@ -138,7 +138,7 @@
 
 (defn ant-report
   "Reporting function. Prints out the tree and its score"
-  [tree fitness]
+  [iteration tree fitness]
   (pprint (nth tree 2))
   (println (str "Error:\t" fitness "\n\n")))
 
@@ -153,7 +153,7 @@
                  :functions ant-functions :report ant-report}
         [tree score] (rest (run-genetic-programming options))]
     (do (println "Done!")
-        (ant-report tree score)
+        (ant-report 0 tree score)
         (println "Testing for generalization (one data set, same penalty and max steps)")
         (println (str "Score: " (run-ant tree TESTFOOD))))))
 
