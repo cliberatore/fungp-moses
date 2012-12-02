@@ -476,7 +476,7 @@
           [_ best-tree best-fit] (first (sort-by #(nth % 2) islands-fit))]
       (if (or (zero? n) (zero? best-fit))
         [islands best-tree best-fit]
-        (do (report best-tree best-fit)
+        (do (report n best-tree best-fit)
             (recur (- n 1) islands))))))
 
 ;;; ### Wrap it up

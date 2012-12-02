@@ -1,7 +1,10 @@
 (ns fungp.problems.twoboxes
   (:use fungp.util)
   (:use fungp.moses)
-  (:use clojure.pprint))
+  (:use fungp.test.util)
+  (:use clojure.pprint)
+  (:use clojure.stacktrace)
+  (:use clojure.java.io))
 
 (use '[clojure.core.match :only (match)])
 
@@ -44,15 +47,15 @@
   '())
 
 (def training-range
-  '((2 4 7 2 5 3)
-    (7 10 9 10 3 1)
-    (10 9 4 8 1 6)
-    (3 9 5 1 6 4)
-    (4 3 2 7 6 1)
-    (3 3 1 9 5 4)
-    (5 9 9 1 7 6)
-    (1 2 9 3 9 2)
-    (2 6 8 2 6 10)))
+  '((2. 4. 7. 2. 5. 3.)
+    (7. 10. 9. 10. 3. 1.)
+    (10. 9. 4. 8. 1. 6.)
+    (3. 9. 5. 1. 6. 4.)
+    (4. 3. 2. 7. 6. 1.)
+    (3. 3. 1. 9. 5. 4.)
+    (5. 9. 9. 1. 7. 6.)
+    (1. 2. 9. 3. 9. 2.)
+    (2. 6. 8. 2. 6. 10.)))
 
 (defn match-func
   "For sake of convenience, we can define a function to generate the outputs we're attempting to match."
@@ -68,22 +71,35 @@
   (try
     (let [f (eval (list 'fn [sample-parameters] tree)) ;; compile using compile-tree
           results (map f training-range)] ;; map the function to the test range
-      ;; then we compare the test results to the actual expected output
-      ;; off-by-sq is a utility function that calculates difference squared
-      (reduce + (map off-by-sq actual-output results)))
+      ;; Here, we have to make sure that we don't overload our results, setting the intial
+      ;; value to double. Clojure will start with an int if we don't tell it.
+      ;(println results)
+      (reduce + (double 0) (map off-by-sq actual-output results)))
     ;; not necessary here, but this is how you might catch a possible exception
-    (catch Exception e (println e) (println tree))))
+    (catch Exception e
+      (println e)
+      (println "Sample paremeters:" sample-parameters)
+      (println "Output: " (eval (list 'fn [sample-parameters] tree)))
+      (println tree)
+      (print-stack-trace *e))))
 
 (defn sample-report
   "Reporting function. Prints out the tree and its score"
-  [tree fitness]
-  (pprint tree)
-  (println (str "Error:\t" fitness "\n"))
-  (flush))
+  [iteration best-tree best-fit]
+	  (pprint best-tree)
+	  (println (str "Iteration: " iteration "\tError:\t" best-fit "\n"))
+	  (flush)
+    (with-open [wrtr (writer (str "reports/twobox.txt." now) :append true)]
+      (.write wrtr (str iteration "," best-fit ",(" (apply str best-tree) ")"))))
 
-(def twobox-options {:iterations 5 :migrations 51
+(def twobox-options {:iterations 1 :migrations 51
                   :terminals sample-parameters :max-depth 10
                   :numbers number-literals :fitness sample-fitness
                   :functions sample-functions :report sample-report
-                  :num-islands 6 :population-size 4000
+                  :num-islands 6 :population-size 2000
+                  :adf-count 2
                   :moses-normalize normalize-tree-regression})
+
+(defn run-twobox []
+  (with-open [w (writer (str "reports/twobox.txt." now))])
+  (run-fungp-moses twobox-options))
