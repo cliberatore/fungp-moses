@@ -9,14 +9,16 @@
 (use '[clojure.core.match :only (match)])
 
 (defn normalize-leaves-regression [[func & operands]]
-  (match [func operands]
-         [(:or '+ '-) (:or ([0.0 a] :seq) ([a 0.0] :seq) ([0 a] :seq) ([a 0] :seq))] a
-         ['- (:or (['L0 'L0] :seq) (['L1 'L1] :seq) (['H0 'H0] :seq) (['H1 'H1] :seq) (['W0 'W0] :seq) (['W1 'W1] :seq))] 0.0
-         ['* (:or ([0.0 a] :seq) ([a 0.0] :seq) ([0 a] :seq) ([a 0] :seq))] 0.0
-         ['sdiv (:or ([0.0 a] :seq) ([a 0.0] :seq) ([0 a] :seq) ([a 0] :seq))] 0.0
-         :else (concat (list func) operands)
-         )
-)
+  (println operands)
+  (if (and (>= 2 (count operands)) (= (nth operands 0) (nth operands 1)))
+    0.0
+	  (match [func operands]
+	         [(:or '+ '-) (:or ([0.0 a] :seq) ([a 0.0] :seq) ([0 a] :seq) ([a 0] :seq))] a
+	         ['- (:or (['L0 'L0] :seq) (['L1 'L1] :seq) (['H0 'H0] :seq) (['H1 'H1] :seq) (['W0 'W0] :seq) (['W1 'W1] :seq))] 0.0
+	         ['* (:or ([0.0 a] :seq) ([a 0.0] :seq) ([0 a] :seq) ([a 0] :seq))] 0.0
+	         ['sdiv (:or ([0.0 a] :seq) ([a 0.0] :seq) ([0 a] :seq) ([a 0] :seq))] 0.0
+	         :else (concat (list func) operands)
+	         )))
 
 (defn normalize-tree-regression [[func & operands :as tree]]
   (if (nil? operands) func
@@ -92,11 +94,11 @@
     (with-open [wrtr (writer (str "reports/twobox.txt." now) :append true)]
       (.write wrtr (str iteration "," best-fit ",(let " (str (nth best-tree 1)) " " (str (nth best-tree 2)) ")\n"))))
 
-(def twobox-options {:iterations 1 :migrations 1
+(def twobox-options {:iterations 1 :migrations 51
                   :terminals sample-parameters :max-depth 10
                   :numbers number-literals :fitness sample-fitness
                   :functions sample-functions :report sample-report
-                  :num-islands 6 :population-size 2
+                  :num-islands 6 :population-size 2000
                   :adf-count 2
                   :moses-normalize normalize-tree-regression})
 

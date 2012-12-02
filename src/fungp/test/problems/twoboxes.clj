@@ -9,7 +9,7 @@
 
 (def ^:dynamic lastTime)
 
-(defn test-normal-gp-twobox [iters]
+(defn test-moses-twobox [iters]
   (with-open [wrtr (writer (str "reports/twobox." now ".time") :append true)]
     (loop [iters iters]
       (let [runtime (time-body (rest (run-fungp-moses twobox-options)))]
