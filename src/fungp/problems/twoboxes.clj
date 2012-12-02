@@ -90,7 +90,7 @@
 	  (println (str "Iteration: " iteration "\tError:\t" best-fit "\n"))
 	  (flush)
     (with-open [wrtr (writer (str "reports/twobox.txt." now) :append true)]
-      (.write wrtr (str iteration "," best-fit ",(" (apply str best-tree) ")"))))
+      (.write wrtr (str iteration "," best-fit ",(" (apply str best-tree) ")\n"))))
 
 (def twobox-options {:iterations 1 :migrations 51
                   :terminals sample-parameters :max-depth 10
