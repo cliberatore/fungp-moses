@@ -29,7 +29,7 @@
                   :terminals sample-parameters :max-depth 10
                   :numbers number-literals :fitness sample-fitness
                   :functions sample-functions :report report-twobox-moses
-                  :num-islands 6 :population-size 20
+                  :num-islands 6 :population-size 2
                   :adf-count 2
                   :moses-normalize normalize-tree-regression})
 
@@ -37,24 +37,25 @@
                   :terminals sample-parameters :max-depth 10
                   :numbers number-literals :fitness sample-fitness
                   :functions sample-functions :report report-twobox-fungp
-                  :num-islands 6 :population-size 20
+                  :num-islands 6 :population-size 2
                   :adf-count 2
                   :moses-normalize normalize-tree-regression})
 
 (defn test-norm-twobox [iters]
-  (with-open [wrtr (writer (str "reports/twobox.norm." now ".time") :append true)]
     (loop [iters iters]
       (let [runtime (time-body (rest (run-fungp-moses twobox-moses-options)))]
-         (.write wrtr (str (first runtime) "," (last (last runtime)) "\n"))
+        (with-open [wrtr (writer (str "reports/twobox.norm." now ".time") :append true)]
+         (.write wrtr (str (first runtime) "," (last (last runtime)) "\n")))
       (if (> iters 0)
         (recur (- iters 1))
-        runtime)))))
+        runtime))))
 
 (defn test-fungp-twobox [iters]
-  (with-open [wrtr (writer (str "reports/twobox.fungp." now ".time") :append true)]
+  
     (loop [iters iters]
       (let [runtime (time-body (rest (run-genetic-programming twobox-fungp-options)))]
-         (.write wrtr (str (first runtime) "," (last (last runtime)) "\n"))
+        (with-open [wrtr (writer (str "reports/twobox.fungp." now ".time") :append true)]
+         (.write wrtr (str (first runtime) "," (last (last runtime)) "\n")))
       (if (> iters 0)
         (recur (- iters 1))
-        runtime)))))
+        runtime))))
