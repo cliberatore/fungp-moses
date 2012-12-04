@@ -22,4 +22,3 @@
 	          (map #(cond (list? %1) (normalize-tree-sanmateo %1)
 	                      (symbol? %1) (symbol %1)
 	                      (number? %1) (num %1)) operands))))))
-

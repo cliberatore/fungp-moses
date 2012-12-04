@@ -112,6 +112,7 @@
 
 
 (def ^:dynamic moses-normalize)
+(def ^:dynamic moses-optimize)
 ;;; ### Tree creation
 ;;;
 ;;; My method of random tree generation is a combination of the "grow" and "fill"
@@ -414,6 +415,8 @@
    called by run-genetic-programming."
   [n population tournament-size mutation-probability mutation-depth max-depth terminals
    numbers functions fitness]
+  ;(println "optimize bound? " (bound? #'moses-optimize))
+  ;(println "normalize bound? " (bound? #'moses-normalize))
   (loop [n (int n) population population] ;; optimize inner loop
     (let [computed-fitness (fitness-zip population fitness)
           [best-tree best-fit] (get-best-fitness computed-fitness)]
@@ -426,7 +429,7 @@
                    (truncate-population max-depth)
                    (elitism best-tree)
                    (#(if (bound? #'moses-normalize) (moses-normalize %) %))
-                   ;(#(if (true? moses) (normalize-population %) % ))))))))
+                   (#(if (bound? #'moses-optimize) (moses-optimize % fitness terminals numbers) %))
                    ))))))
 
 ;;; ### Islands

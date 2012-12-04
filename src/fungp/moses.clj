@@ -12,15 +12,27 @@
 	  (take 2 module-tree)
     ;If the body function is actually a list, try to normalize it. It could just be a terminal or number
     ;otherwise, just return the body of the function
-    (if (list? (nth module-tree 2))
+    (if (seq? (nth module-tree 2))
       (list (normalize-tree (nth module-tree 2)))
       (list (nth module-tree 2)))))
 
+(defn optimize-module-tree [module-tree fitness parameters literals]
+	(concat
+	  (take 2 module-tree)
+    ;If the body function is actually a list, try to normalize it. It could just be a terminal or number
+    ;otherwise, just return the body of the function
+    (if (list? (nth module-tree 2))
+      (list (optimize-tree (nth module-tree 2) fitness parameters literals))
+      (list (nth module-tree 2)))))
+
 (defn normalize-population [population]
+  ;(println "Normalizing population")
   (map #(normalize-module-tree %) population))
 
-;(defn optimize-population [population])
-;  ;(map #(optimize-module-tree %) population))
+(defn optimize-population [population fitness parameters literals]
+  { :pre [(bound? #'optimize-tree)] }
+  ;(println "Optimizing population")
+  (map #(optimize-tree % fitness parameters literals) population))
 
 (defn run-fungp-moses
   "This is the entry function for running the FunGP library using the Moses algorithm. Call this with a map of the parameters to run the genetic programming algorithm."
@@ -29,7 +41,7 @@
            adl-count adl-limit moses-normalization moses-optimization]
        ;; the :or block here specifies default values for some of the arguments
    :or {tournament-size 5 mutation-probability 0.1 mutation-depth 6 adf-arity 1 adf-count 0
-        adl-count 0 adl-limit 25 numbers [] moses-normalization (fn [x] x) moses-optimization (fn [x] x)}}]
+        adl-count 0 adl-limit 25 numbers [] moses-normalization (fn [x] x) moses-optimization (fn [x & y] x)}}]
   (let [options {:iterations iterations :migrations migrations
                  :num-islands num-islands :population-size population-size
                  :tournament-size tournament-size :mutation-probability mutation-probability
@@ -40,6 +52,7 @@
                  :adl-count adl-count :adl-limit adl-limit
                  }]
    (binding [fungp.core/moses-normalize normalize-population
+             fungp.core/moses-optimize optimize-population
              fungp.moses/normalize-tree moses-normalization
              fungp.moses/optimize-tree moses-optimization]
             (run-genetic-programming options))))
