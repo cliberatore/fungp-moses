@@ -41,13 +41,3 @@
                                     :moses-optimization optimize-tree-regression} regression-options))
 (def regression-norm-options (conj {:moses-normalization normalize-tree-regression} regression-options))
 (def regression-opt-options (conj {:moses-optimization optimize-tree-regression} regression-options))
-
-(defn test-fungp [report-name samples options]
-  (let [options (conj {:report (test-report report-name)} options)]
-	  (loop [iters samples]
-	    (let [runtime (time-body (rest (run-fungp-moses options)))]
-	      (with-open [wrtr (writer (str "reports/" report-name now ".time") :append true)]
-	        (.write wrtr (str (first runtime) "," (last (last runtime)) "\n")))
-	      (if (> iters 0)
-	        (recur (- iters 1))
-	        runtime)))))
