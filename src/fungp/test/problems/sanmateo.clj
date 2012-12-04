@@ -30,7 +30,7 @@
                   :terminals ant-terminals :max-depth 10
                   :numbers '() :fitness ant-fitness
                   :functions ant-functions
-                  :num-islands 6 :population-size 700
+                  :num-islands 6 :population-size 250
                   :adf-count 2
                   :moses-normalize normalize-tree-sanmateo})
 
