@@ -4,7 +4,7 @@
   (:use criterium.core)
   (:use fungp.moses))
 
-(defn ts [] (.format (new java.text.SimpleDateFormat "YYYYMMdd.HHmmss") (new java.util.Date)))
+(defn ts [] (.format (new java.text.SimpleDateFormat "yyyyMMdd.HHmmss") (new java.util.Date)))
 
 (def now (ts))
 
